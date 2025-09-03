@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>EcoLife AI – 2D térkép, radar, okos figyelmeztetés</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    :root {
+      --bg: linear-gradient(120deg,#e9ffe7 0%,#cbf3d2 100%);
+      --fg: #21321b;
+      --panel: #fff;
+    }
+    body {background:var(--bg);font-family:'Montserrat',sans-serif;margin:0;color:var(--fg);min-height:100vh;transition:.4s;}
+    .container {max-width:560px;margin:10px auto 0 auto;padding:10px 0 16px 0;background:var(--panel);
+      border-radius:22px;box-shadow:0 8px 32px rgba(48,89,64,0.17);}
+    h1 {text-align:center;font-size:2.1rem;color:#247a36;margin:6px 0 16px 0;}
+    .ai-suggestion {background:#e3ffe7;border-left:5px solid #58d172;padding:18px 14px 18px 24px;
+      border-radius:16px;font-size:1.14rem;margin-bottom:18px;display:flex;align-items:center;gap:10px;
+      box-shadow:0 2px 8px rgba(85,180,120,0.08);}
+    .ai-suggestion svg {flex-shrink:0;width:26px;height:26px;}
+    .section-title {font-size:1.09rem;color:#28853b;margin:20px 0 11px 8px;font-weight:700;}
+    .eco-cards {display:flex;gap:12px;flex-wrap:wrap;margin-bottom:9px;}
+    .eco-card {flex:1 1 142px;background:linear-gradient(115deg,#e8f5e9 60%,#d2ffef 100%);
+      border-radius:14px;box-shadow:0 2px 8px rgba(63,155,120,0.09);padding:13px 9px 9px 13px;
+      display:flex;flex-direction:column;align-items:flex-start;min-width:116px;max-width:210px;margin-bottom:7px;}
+    .eco-card strong {font-size:1.06rem;color:#246c38;}
+    .eco-card small,.eco-card span {color:#557b61;font-size:.97rem;}
+    .eco-icon {font-size:1.11rem;margin-right:7px;}
+    .badges {display:flex;gap:7px;flex-wrap:wrap;margin-top:7px;}
+    .badge {background:#ebffe8;border-radius:8px;padding:3px 7px;font-size:.97em;}
+    .badge.pm10 {background:#f5ffe1;}
+    .badge.no2 {background:#f7f3ff;}
+    .badge.o3 {background:#e2f6ff;}
+    .badge.co {background:#fff4e2;}
+    .challenge-row {display:flex;align-items:center;justify-content:space-between;gap:7px;}
+    .challenge-desc {font-size:1.02rem;color:#187441;font-weight:500;}
+    .challenge-btn {background:#52c77b;color:#fff;border:none;border-radius:10px;padding:7px 15px;
+      font-size:.99rem;font-weight:600;cursor:pointer;transition:background .2s;}
+    .challenge-btn:hover {background:#329758;}
+    .map-header {display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;}
+    .map-btn {background:#d9f5dd;border:none;color:#187a4c;font-weight:700;
+      border-radius:9px;padding:5px 16px;font-size:1.08em;margin-right:8px;cursor:pointer;}
+    .map-btn.selected {background:#33ba72;color:#fff;}
+    .street-btn {background:#f5ffe2;color:#187a4c;border-radius:10px;font-weight:600;
+      padding:4px 16px;font-size:1em;margin-right:2px;cursor:pointer;}
+    .street-btn:hover {background:#e4ffe3;}
+    .darkmode-btn {background:#253e28;color:#d5ffd6;padding:4px 12px;border:none;border-radius:9px;cursor:pointer;float:right;}
+    .map-box {width:100%;height:220px;min-height:155px;max-height:350px;position:relative;
+      border-radius:15px;overflow:hidden;box-shadow:0 2px 12px #d6e6d9;}
+    #leafletmap {width:100%;height:100%;border-radius:15px;}
+    .poi-legend {margin:8px 0 0 0;font-size:1.05em;display:flex;flex-wrap:wrap;gap:12px;justify-content:left;}
+    .poi-icon {margin-right:2px;font-size:1.18em;}
+    .footer {text-align:center;color:#aad2bb;margin:21px 0 7px 0;font-size:.97rem;}
+    .forecast-panel {display:flex;gap:12px;margin:10px 0 0 6px;}
+    .forecast-day {background:#e7fbf6;padding:9px 12px;border-radius:13px;box-shadow:0 1px 6px #b6e6d5;
+      text-align:center;min-width:72px;}
+    .forecast-day .day {font-weight:700;color:#167c44;}
+    .forecast-day .icon {font-size:1.5em;}
+    .forecast-day .temp {font-size:1.11em;}
+    .modal-bg {position:fixed;z-index:9999;left:0;top:0;width:100vw;height:100vh;background:rgba(48,48,48,0.18);display:none;align-items:center;justify-content:center;}
+    .modal-card {background:#fff;border-radius:22px;box-shadow:0 4px 32px #b2c0b3;padding:26px 18px;max-width:340px;text-align:center;}
+    .modal-card h3 {margin:0 0 7px 0;color:#c0132e;font-size:1.21em;}
+    .modal-card .modal-msg {font-size:1.06em;margin-bottom:12px;}
+    .modal-card .modal-ok {margin-top:9px;padding:8px 28px;border:none;background:#248645;color:#fff;font-size:1.04em;border-radius:12px;cursor:pointer;}
+    body.dark {
+      --bg: linear-gradient(120deg,#222c24 0%,#1e2730 100%);
+      --fg: #e3ffe7;
+      --panel: #203628;
+    }
+    body.dark .eco-card, body.dark .forecast-day, body.dark .modal-card {background:#223929!important;color:#a5ffd9;}
+    body.dark h1 {color:#82fcab;}
+    body.dark .ai-suggestion {background:#19361d;color:#88ffaa;}
+    body.dark .footer {color:#427759;}
+    body.dark .map-btn, body.dark .street-btn, body.dark .darkmode-btn {background:#2d4936!important;color:#b1ffde;}
+    @media (max-width:700px){.container{max-width:100vw;} .eco-cards{flex-direction:column;}
+      .map-box{height:190px;min-height:124px;}}
+    @media (max-width:430px){.container{padding:1px;} .eco-card{min-width:90px;} h1{font-size:1.25em;}}
+  </style>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body>
+  <div class="container">
+    <button class="darkmode-btn" id="darkmodeBtn" title="Sötét mód váltás 🌙">🌙</button>
+    <h1>🌱 EcoLife AI</h1>
+    <div id="ai-suggestion" class="ai-suggestion">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" stroke-width="2"/><path d="M12 16v-4M12 8h.01" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <span><strong>AI ajánlatod töltődik…</strong></span>
+    </div>
+    <div class="section-title">🌤 Élő Öko-adatok</div>
+    <div class="eco-cards">
+      <div class="eco-card"><span class="eco-icon">🏙️</span><strong>Hely:</strong>
+        <small id="city">Betöltés…</small></div>
+      <div class="eco-card"><span class="eco-icon">🌡️</span><strong>Hőmérséklet:</strong>
+        <small id="weather">Betöltés…</small></div>
+      <div class="eco-card"><span class="eco-icon">🌞</span><strong>UV-index:</strong>
+        <small id="uv">Betöltés…</small></div>
+      <div class="eco-card"><span class="eco-icon">🌬️</span><strong>Levegőminőség:</strong>
+        <small id="air-quality">Betöltés…</small>
+        <div class="badges" id="air-components"></div></div>
+      <div class="eco-card"><span class="eco-icon">🌫️</span><strong>Látási viszony, páratartalom, szél:</strong>
+        <small id="atm-panel">Betöltés…</small></div>
+      <div class="eco-card"><span class="eco-icon">🌸</span><strong>Pollen előrejelzés:</strong>
+        <small id="pollen-panel">Betöltés…</small></div>
+      <div class="eco-card" id="weather-warning-card"><span class="eco-icon">⛈️</span>
+        <strong>Veszélyjelzés:</strong>
+        <div id="weather-warning-details"><small>Betöltés…</small></div></div>
+      <div class="eco-card"><span class="eco-icon">🏆</span>
+        <strong>Heti öko-kihívásod:</strong>
+        <div class="challenge-row">
+          <span class="challenge-desc">Bringázz legalább 10 km-t!</span>
+          <button class="challenge-btn" onclick="completeChallenge()">Teljesítettem</button>
+        </div>
+        <small id="challenge-status">0 teljesítés</small>
+      </div>
+    </div>
+    <div class="section-title">🗺️ Élő 2D térkép & POI / Utcakép</div>
+    <div class="map-header">
+      <button id="btn2d" class="map-btn selected">2D térkép</button>
+      <button id="btnstreet" class="street-btn"><span style="font-size:1.2em;">📷</span> Utcakép</button>
+    </div>
+    <div class="map-box"><div id="leafletmap"></div></div>
+    <div id="traffic-info" style="text-align:center; margin:10px 0; color:#1e6b1a; font-size:1.08em;"></div>
+    <div class="poi-legend" id="poi-legend"></div>
+    <div class="forecast-panel" id="forecast-panel"></div>
+    <div class="section-title">📅 Kiemelt események, rendezvények a közelben</div>
+    <div id="event-list"></div>
+    <!-- Statikus OMSZ radar GIF + csak 1 gomb! -->
+    <div id="omsz-radar" style="margin:18px 0 0 0;text-align:center;">
+  <img src="https://www.met.hu/idojaras/radar/radar_animation.gif"
+       alt="OMSZ radar"
+       style="max-width:98%;border-radius:16px;box-shadow:0 2px 18px #8888;">
+  <br>
+  <span style="font-size:.98em;color:#237a36;">
+    OMSZ hivatalos radar (statikus kép, 15p frissítés)
+  </span>
+  <div style="margin-top:12px;">
+    <button onclick="window.open('https://www.met.hu/idojaras/aktualis_idojaras/radar/', '_blank', 'width=950,height=750')"
+      style="background:#e8ffeb;color:#247a36;padding:7px 19px;border-radius:9px;border:none;cursor:pointer;font-size:1.06em;">
+      OMSZ Radar (valósidejű, teljes oldal)
+    </button>
+  </div>
+</div>
+
+    <div class="footer">
+      &copy; 2025 EcoLife AI | <span style="color:#7bbd97">Mobil-optimalizált, radar+események, előrejelzés, sötét mód</span>
+    </div>
+    <!-- Okosfigyelmeztetés MODAL -->
+    <div class="modal-bg" id="alertModal">
+      <div class="modal-card">
+        <h3 id="modalTitle">Figyelem!</h3>
+        <div class="modal-msg" id="modalMsg">Valamilyen veszély!</div>
+        <button class="modal-ok" onclick="document.getElementById('alertModal').style.display='none'">OK</button>
+      </div>
+    </div>
+  </div>
+<script>
+
+
+const OPENWEATHER_API_KEY = "6a8514078d38de2a2c4e4e1642fede5c";
+const poiTypes = [
+  {icon:"🚌", key:"bus", val:"yes", label:"Buszmegálló"},
+  {icon:"🚋", key:"tram", val:"yes", label:"Villamosmegálló"},
+  {icon:"🚇", key:"subway", val:"yes", label:"Metróállomás"},
+  {icon:"🚉", key:"train", val:"yes", label:"Vasútállomás"},
+  {icon:"🚏", key:"public_transport", val:"platform", label:"Közösségi megálló"},
+  {icon:"🛒", key:"shop", val:"supermarket", label:"Élelmiszer"},
+  {icon:"🏪", key:"shop", val:"electronics", label:"Műszaki"},
+  {icon:"☕", key:"amenity", val:"cafe", label:"Kávézó"},
+  {icon:"⚽", key:"leisure", val:"pitch", label:"Sport"},
+  {icon:"🔌", key:"amenity", val:"charging_station", label:"Töltő"},
+];
+document.getElementById("poi-legend").innerHTML = poiTypes.map(t=>`<span class="poi-icon">${t.icon}</span>${t.label}`).join("  ");
+const demoPollen = [
+  { city: "Budapest", ragweed: "magas", grass: "közepes", birch: "alacsony" },
+  { city: "Székesfehérvár", ragweed: "közepes", grass: "alacsony", birch: "nincs" },
+  { city: "Debrecen", ragweed: "alacsony", grass: "alacsony", birch: "alacsony" },
+  { city: "Miskolc", ragweed: "közepes", grass: "közepes", birch: "alacsony" }
+];
+function getDemoPollen(cityName) {
+  const found = demoPollen.find(x => cityName && cityName.includes(x.city));
+  return found || demoPollen[0];
+}
+function completeChallenge() {
+  let count = Number(localStorage.getItem("eco_challenge") || 0) + 1;
+  localStorage.setItem("eco_challenge", count);
+  document.getElementById('challenge-status').textContent = count + " teljesítés";
+}
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById('challenge-status').textContent =
+    (localStorage.getItem("eco_challenge") || 0) + " teljesítés";
+});
+function getPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) reject("Nincs geolokáció!");
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve(pos.coords),
+      err => reject(err)
+    );
+  });
+}
+async function getWeather(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=uv_index,visibility,relative_humidity_2m,windspeed_10m,precipitation_probability,precipitation,snowfall,weathercode,temperature_2m&forecast_days=3&timezone=auto`;
+  const res = await fetch(url);
+  if (!res.ok) throw "Nem sikerült lekérni az időjárást!";
+  return await res.json();
+}
+async function getAirQuality(lat, lon) {
+  const url = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (!data.list || !data.list.length) return null;
+  return data.list[0];
+}
+async function getCityName(lat, lon) {
+  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=hu`;
+  const res = await fetch(url);
+  if (!res.ok) return "";
+  const data = await res.json();
+  return data.address.village || data.address.town || data.address.city || data.address.hamlet || data.display_name;
+}
+async function getWeatherWarning(cityName) {
+  try {
+    const url = "https://api.met.hu/idojaras/veszelyjelzes/megye.json";
+    const res = await fetch(url);
+    const data = await res.json();
+    const countyNames = ["Bács-Kiskun","Baranya","Békés","Borsod-Abaúj-Zemplén","Csongrád-Csanád","Fejér","Győr-Moson-Sopron","Hajdú-Bihar","Heves","Jász-Nagykun-Szolnok","Komárom-Esztergom","Nógrád","Pest","Somogy","Szabolcs-Szatmár-Bereg","Tolna","Vas","Veszprém","Zala","Budapest"];
+    let county = "";
+    for (const name of countyNames) {
+      if (cityName && cityName.includes(name)) { county = name; break; }
+    }
+    if (!county || !data.megye) return { warnings: [], county: "" };
+    const c = data.megye.find(x => x.nev === county);
+    if (!c || !c.fok || !c.fok.length) return { warnings: [], county };
+    let warnings = c.fok.filter(x => x.szint > 0);
+    return { warnings, county };
+  } catch (e) { return { warnings: [], county: "" }; }
+}
+function warningIconAndText(jelzes) {
+  if (!jelzes) return {icon:"",text:""};
+  let txt = jelzes.toLowerCase();
+  if (txt.includes("zivatar")) return {icon:"🌩️", text:"Zivatar"};
+  if (txt.includes("hőség")) return {icon:"☀️", text:"Hőség"};
+  if (txt.includes("szél")) return {icon:"💨", text:"Szél"};
+  if (txt.includes("jégeső")) return {icon:"🧊", text:"Jégeső"};
+  if (txt.includes("hó")) return {icon:"🌨️", text:"Hó"};
+  if (txt.includes("köd")) return {icon:"🌫️", text:"Köd"};
+  if (txt.includes("eső")) return {icon:"🌧️", text:"Eső"};
+  return {icon:"⚠️", text:jelzes};
+}
+function warningLevelClass(szint) {
+  if (szint == 3) return "eco-card warn-red";
+  if (szint == 2) return "eco-card warn-orange";
+  if (szint == 1) return "eco-card warn-yellow";
+  return "eco-card warn-none";
+}
+function formatOszTime(t) {
+  if (!t) return "";
+  let d = t.split("T");
+  if (!d[0] || !d[1]) return "";
+  let dm = d[0].slice(5).replace("-",".") + ". " + d[1].slice(0,5);
+  return dm;
+}
+async function fetchPOI(lat, lon) {
+  const rad = 900;
+  let parts = poiTypes.map(t => `node["${t.key}"="${t.val}"](around:${rad},${lat},${lon});`).join("");
+  const query = `[out:json];(${parts});out body;`;
+  try {
+    const res = await fetch("https://overpass-api.de/api/interpreter", {method:"POST",body:query});
+    const data = await res.json();
+    return data.elements || [];
+  } catch(e) {
+    return [
+      {lat:lat+0.0013,lon:lon-0.0017,tags:{shop:"supermarket"},id:1},
+      {lat:lat-0.0009,lon:lon+0.0022,tags:{amenity:"cafe"},id:2},
+      {lat:lat+0.0007,lon:lon+0.001,tags:{amenity:"charging_station"},id:3},
+      {lat:lat-0.0005,lon:lon-0.0006,tags:{public_transport:"platform"},id:4}
+    ];
+  }
+}
+function generateAISuggestion(weather, uv, air, atm, trafficMsg) {
+  let msg = "";
+  if (weather.hourly && weather.hourly.weathercode && weather.hourly.time) {
+    let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+    let found = false;
+    for (let i = nowIdx+1; i < weather.hourly.time.length && i <= nowIdx+2; i++) {
+      if (!weather.hourly.weathercode[i]) continue;
+      let code = weather.hourly.weathercode[i], type = "";
+      if ([61,63,65,80,81,82].includes(code)) type = "eső";
+      if ([71,73,75,85,86].includes(code)) type = "hó";
+      if ([95,96,99].includes(code)) type = "zivatar";
+      if ([67,77].includes(code)) type = "jégeső";
+      if ([51,53,55,56,57].includes(code)) type = "szitálás";
+      if ([3].includes(code)) type = "köd";
+      if ([45,48].includes(code)) type = "köd";
+      if ([2].includes(code)) type = "felhős";
+      if (type) {
+        let dt = new Date(weather.hourly.time[i]);
+        let now = new Date(weather.current_weather.time);
+        let min = Math.round((dt-now)/1000/60);
+        if (min > 0 && min <= 60) {
+          msg += `⚡ <b>${type.charAt(0).toUpperCase()+type.slice(1)} várható kb. ${min} perc múlva!</b> `;
+          found = true; break;
+        }
+      }
+    }
+    if (!found) msg += "";
+  }
+  if (weather.current_weather && weather.current_weather.precipitation > 0) {
+    msg += "Jelenleg is csapadék van, ";
+  }
+  if (uv !== null && uv >= 6) msg += "erős UV, használj fényvédőt, ";
+  if (atm && atm.wind > 15) msg += `erős szél (${atm.wind} km/h), `;
+  if (atm && atm.visibility < 7) msg += `látótávolság: ${atm.visibility} km, `;
+  if (atm && atm.humidity > 80) msg += `magas páratartalom (${atm.humidity}%). `;
+  if (air && air.components && air.components.pm2_5 < 18) {
+    msg += "Jó a levegőminőség – ideális a kerékpározáshoz!";
+  } else if (air && air.components) {
+    msg += `A levegőminőség közepes/szennyezett (PM2.5: ${air.components.pm2_5} µg/m³), inkább ne fuss a szabadban.`;
+  } else {
+    msg += "Nincs elérhető adat a levegőminőségről.";
+  }
+  if (trafficMsg) msg += `<br>🚦 <b>${trafficMsg}</b>`;
+  return msg;
+}
+let map, marker, circle, poiMarkers = [];
+function initMap(lat, lon) {
+  if (!map) {
+    map = L.map('leafletmap').setView([lat, lon], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    marker = L.marker([lat, lon], {icon: L.icon({
+      iconUrl: 'https://cdn.jsdelivr.net/gh/pointhi/leaflet-color-markers@master/img/marker-icon-2x-green.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+    })}).addTo(map).bindPopup("Itt vagy!").openPopup();
+    circle = L.circle([lat, lon], {radius: 100, color: "#50ce90", fillOpacity:.12}).addTo(map);
+  } else {
+    marker.setLatLng([lat, lon]);
+    circle.setLatLng([lat, lon]);
+    map.setView([lat, lon], map.getZoom());
+  }
+  updatePOI(lat, lon);
+}
+async function updatePOI(lat, lon) {
+  poiMarkers.forEach(p => map.removeLayer(p));
+  poiMarkers = [];
+  const pois = await fetchPOI(lat, lon);
+  pois.forEach(node => {
+    let icon = "❓", typeLabel = "-";
+    for (let t of poiTypes) if (node.tags[t.key] === t.val) { icon = t.icon; typeLabel = t.label; break; }
+    let m = L.marker([node.lat, node.lon], {
+      icon: L.divIcon({className:"",html:`<span style="font-size:1.5em">${icon}</span>`})
+    }).addTo(map).bindPopup(
+      `${icon} <b>${node.tags.name||typeLabel}</b><br><span style="font-size:1em;">${typeLabel}</span>`
+    );
+    poiMarkers.push(m);
+  });
+}
+function liveFollowPosition() {
+  if (navigator.geolocation) {
+    navigator.geolocation.watchPosition(pos => {
+      const lat = pos.coords.latitude, lon = pos.coords.longitude;
+      initMap(lat, lon);
+    });
+  }
+}
+document.getElementById("btnstreet").onclick = function() {
+  if (marker && marker.getLatLng) {
+    let lat = marker.getLatLng().lat, lon = marker.getLatLng().lng;
+    window.open(`https://maps.google.com/?cbll=${lat},${lon}&layer=c`, "_blank");
+  }
+};
+document.getElementById("btn2d").onclick = function() {
+  if (marker && marker.getLatLng) {
+    let lat = marker.getLatLng().lat, lon = marker.getLatLng().lng;
+    initMap(lat, lon);
+  }
+};
+// --- Sötét mód ---
+function setDarkMode(on) {
+  document.body.classList.toggle('dark', on);
+  localStorage.setItem("eco_darkmode", on ? "1":"0");
+}
+function autoDarkMode() {
+  const now = new Date(), sunset = 20;
+  setDarkMode(now.getHours() >= sunset || localStorage.getItem("eco_darkmode")==="1");
+}
+document.getElementById('darkmodeBtn').onclick = ()=>setDarkMode(!document.body.classList.contains('dark'));
+setTimeout(autoDarkMode,300);
+// --- MODAL/okos figyelmeztetés: pollen, UV, hőség!
+function showAlertModal(title, msg) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalMsg').innerHTML = msg;
+  document.getElementById('alertModal').style.display = "flex";
+}
+// --- Esemény/PIAC kereső (DEMO random)
+function loadEvents(cityName) {
+  const events = [
+    {title:"Vásárnap – Piactér", time:"2025.09.06. 09:00", place:cityName||"Helyi Piactér"},
+    {title:"OpenAir Jazz", time:"2025.09.07. 18:30", place:cityName||"Belváros park"},
+    {title:"Csokoládéfesztivál", time:"2025.09.08. 11:00", place:cityName||"Művelődési Központ"},
+    {title:"Helyi termelői piac", time:"2025.09.09. 07:00", place:cityName||"Piactér"},
+  ];
+  document.getElementById("event-list").innerHTML = events.map(ev=>
+    `<div>🎉 <b>${ev.title}</b> <span style="color:#208a38;font-weight:500">${ev.time}</span><br>
+      <span style="font-size:.99em;color:#36826a">${ev.place}</span></div>`
+  ).join("<hr>");
+}
+// --- 3 napos gyors időjárás panel ---
+function renderForecast(weather) {
+  const w = weather;
+  let res = '';
+  for (let d = 0; d < 3; d++) {
+    // --- Minimum: 0:00-tól 8:00-ig (éjszaka/hajnal)
+    let minTemp = 99, minIdx = -1;
+    for (let h = d * 24; h < d * 24 + 9; h++) {
+      if (w.hourly.temperature_2m && w.hourly.temperature_2m[h] !== undefined) {
+        if (w.hourly.temperature_2m[h] < minTemp) {
+          minTemp = w.hourly.temperature_2m[h];
+          minIdx = h;
+        }
+      }
+    }
+    // --- Maximum: 13:00-tól 19:00-ig (délutáni csúcs)
+    let maxTemp = -99, maxIdx = -1;
+    for (let h = d * 24 + 13; h < d * 24 + 20; h++) {
+      if (w.hourly.temperature_2m && w.hourly.temperature_2m[h] !== undefined) {
+        if (w.hourly.temperature_2m[h] > maxTemp) {
+          maxTemp = w.hourly.temperature_2m[h];
+          maxIdx = h;
+        }
+      }
+    }
+    // --- Nap neve (pl. Sze, Cs, P)
+    let date = new Date(w.hourly.time[d * 24]);
+    let day = date.toLocaleDateString('hu-HU', { weekday: 'short' });
+    // --- Időjárás ikon: a maximumhoz tartozó időponté
+    let code = w.hourly.weathercode[maxIdx];
+    let icon = "☀️";
+    if ([61,63,65,80,81,82].includes(code)) icon = "🌧️";
+    if ([71,73,75,85,86].includes(code)) icon = "🌨️";
+    if ([95,96,99].includes(code)) icon = "⛈️";
+    if ([67,77].includes(code)) icon = "🧊";
+    // --- Kiírás
+    let minT = minTemp !== 99 ? Math.round(minTemp) + "°C" : "-";
+    let maxT = maxTemp !== -99 ? Math.round(maxTemp) + "°C" : "-";
+    res += `<div class="forecast-day">
+      <div class="day">${day}</div>
+      <div class="icon">${icon}</div>
+      <div class="temp"><span style="color:#19e58f">${minT}</span> / <b>${maxT}</b></div>
+    </div>`;
+  }
+  document.getElementById('forecast-panel').innerHTML = res;
+}
+// --- FŐ LOGIKA, minden betöltése:
+async function loadEcoData() {
+  try {
+    const coords = await getPosition();
+    const lat = coords.latitude, lon = coords.longitude;
+    document.getElementById('city').textContent = "Betöltés…";
+    const cityName = await getCityName(lat, lon);
+    document.getElementById('city').textContent = cityName ? cityName : `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    document.getElementById('weather').textContent = "Betöltés…";
+    document.getElementById('uv').textContent = "Betöltés…";
+    const weather = await getWeather(lat, lon);
+    document.getElementById('weather').textContent =
+      `${Math.round(weather.current_weather.temperature)}°C, ` +
+      (weather.current_weather.precipitation > 0 ? "eső várható" : "nincs csapadék");
+    let uvNow = null;
+    if(weather.hourly && weather.hourly.uv_index && weather.hourly.time){
+      let idx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+      if(idx>=0) uvNow = weather.hourly.uv_index[idx];
+    }
+    document.getElementById('uv').textContent = uvNow !== null ? uvNow.toFixed(1)+" (max 11)" : "Nincs adat";
+    let atmNow = {visibility:0,humidity:0,wind:0};
+    if(weather.hourly && weather.hourly.visibility && weather.hourly.time){
+      let idx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+      if(idx>=0) {
+        atmNow.visibility = Math.round((weather.hourly.visibility[idx]||0)/1000);
+        atmNow.humidity = weather.hourly.relative_humidity_2m ? Math.round(weather.hourly.relative_humidity_2m[idx]||0) : 0;
+        atmNow.wind = weather.hourly.windspeed_10m ? Math.round(weather.hourly.windspeed_10m[idx]||0) : 0;
+      }
+    }
+    document.getElementById('atm-panel').innerHTML = `Látótávolság: <b>${atmNow.visibility} km</b>, Páratartalom: <b>${atmNow.humidity}%</b>, Szél: <b>${atmNow.wind} km/h</b>`;
+    document.getElementById('air-quality').textContent = "Betöltés…";
+    let airData = await getAirQuality(lat, lon);
+    if (airData && airData.components) {
+      let pm = airData.components.pm2_5;
+      let status = "Jó";
+      if (pm >= 35) status = "Szennyezett";
+      else if (pm >= 18) status = "Közepes";
+      document.getElementById('air-quality').textContent =
+        `"${status}" (PM2.5: ${pm} µg/m³)`;
+      document.getElementById('air-components').innerHTML =
+        `<span class="badge pm10">PM10: ${airData.components.pm10} µg/m³</span>` +
+        `<span class="badge no2">NO₂: ${airData.components.no2} µg/m³</span>` +
+        `<span class="badge o3">O₃: ${airData.components.o3} µg/m³</span>` +
+        `<span class="badge co">CO: ${airData.components.co} µg/m³</span>`;
+    } else {
+      document.getElementById('air-quality').textContent =
+        "Nincs elérhető adat a levegőminőségről!";
+      document.getElementById('air-components').textContent = "";
+    }
+    const pollen = getDemoPollen(cityName || "");
+    document.getElementById('pollen-panel').innerHTML =
+      `Parlagfű: <b>${pollen.ragweed}</b>, Fűfélék: <b>${pollen.grass}</b>, Nyírfa: <b>${pollen.birch}</b>`;
+    const ww = await getWeatherWarning(cityName);
+    const warnPanel = document.getElementById('weather-warning-card');
+    const warnDiv = document.getElementById('weather-warning-details');
+    if (!ww.warnings.length) {
+      warnPanel.className = "eco-card warn-none";
+      warnDiv.innerHTML = `<span class="warn-icon">✅</span> <b>Nincs riasztás.</b>`;
+    } else {
+      warnPanel.className = warningLevelClass(Math.max(...ww.warnings.map(w=>w.szint)));
+      warnDiv.innerHTML = ww.warnings.map(w=>{
+        const iconAndText = warningIconAndText(w.jelzes);
+        let timeInfo = w.kezdete ? `<span class="warn-time">${formatOszTime(w.kezdete)} - ${formatOszTime(w.vege)}</span>` : '';
+        return `<span class="warn-icon">${iconAndText.icon}</span> <b>${iconAndText.text}</b> (szint: <b>${w.szint}</b>)${timeInfo}`;
+      }).join("<hr style='border:none;border-top:1px solid #eee;margin:6px 0;>");
+    }
+    // --- MODAL, okos figyelmeztetés: pollen, UV, hőség!
+    if (uvNow && uvNow >= 7) showAlertModal("Extrém UV!","Nagyon erős UV-sugárzás, kerüld a tűző napot 11-15h között! Fényvédelem szükséges.");
+    if (pollen.ragweed === "magas") showAlertModal("Allergén figyelmeztetés","Magas a parlagfű pollen koncentráció. Allergiásoknak fokozott óvatosság!");
+    if (weather.current_weather.temperature >= 33) showAlertModal("Hőségriasztás","Rendkívül magas hőmérséklet, figyelj a folyadékbevitelre és árnyékban tartózkodj!");
+    // --- AI közlekedési tipp (DEMO, itt a traffic-info)
+    let trafficMsg = "";
+    let demoMsgs = [
+      "Nincs jelentős forgalom a környéken.",
+      "Figyelem! A 81-es úton baleset történt, torlódás várható.",
+      "Erős forgalom: útfelújítás miatt lassulás lehet a városban.",
+      "Forgalom: jelenleg akadálymentes minden főút.",
+      "Közelben nincs forgalmi esemény.",
+    ];
+    // Változó szimuláció vagy véletlen (DEMO, cserélhető API-ra!)
+    trafficMsg = demoMsgs[Math.floor(Math.random() * demoMsgs.length)];
+    document.getElementById('traffic-info').innerHTML = "🚦 <b>Forgalmi információ:</b> " + trafficMsg;
+    // --- AI összegzés, minden adattal
+    document.getElementById('ai-suggestion').children[1].innerHTML =
+      `<strong>AI ajánlatod mára:</strong><br>` + generateAISuggestion(weather, uvNow, airData, atmNow, trafficMsg);
+    // --- Élő térkép + POI + pozíció
+    initMap(lat, lon);
+    liveFollowPosition();
+    // --- Esemény kereső
+    loadEvents(cityName);
+    // --- 3 napos előrejelzés
+    renderForecast(weather);
+  } catch (e) {
+    document.getElementById('ai-suggestion').children[1].textContent =
+      "Nem sikerült lekérni az élő adatokat: " + e;
+    document.getElementById('weather').textContent = "Nincs élő adat.";
+    document.getElementById('city').textContent = "";
+    document.getElementById('uv').textContent = "";
+    document.getElementById('atm-panel').textContent = "";
+    document.getElementById('air-quality').textContent = "";
+    document.getElementById('air-components').textContent = "";
+    document.getElementById('pollen-panel').textContent = "";
+    document.getElementById('weather-warning-details').textContent = "";
+    document.getElementById('traffic-info').textContent = "";
+  }
+}
+window.onload = loadEcoData;
+</script>
+</body>
+</html>
+
+
+
