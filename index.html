@@ -1,0 +1,2879 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>EcoLife AI – 2D térkép, radar, okos figyelmeztetés</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    :root {
+  --bg: linear-gradient(120deg,#181e25 0%,#12151b 100%);
+  --fg: #dcffe3;
+  --panel: #1d2431;
+  --glow: 0 0 12px #2affbb, 0 0 36px #1e8bc3;
+  --panel-glow: 0 0 24px #00ffc2, 0 0 60px #2196f3, 0 0 5px #44f4ae;
+  --border-neon: 2px solid #30ffd4;
+}
+
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+  font-family: 'Montserrat', sans-serif;
+}
+.container {
+  max-width: 600px;
+  margin: 18px auto 0 auto;
+  background: var(--panel);
+  border-radius: 22px;
+  box-shadow: var(--panel-glow);
+  border: var(--border-neon);
+  padding: 17px 0 18px 0;
+}
+h1 {
+  color: #44ffe9;
+  text-align: center;
+  text-shadow: 0 0 10px #2affbb, 0 0 30px #0fffc2;
+  font-size: 2.15em;
+  margin-bottom: 19px;
+  margin-top: 7px;
+  letter-spacing: 0.04em;
+}
+.eco-card {
+  background: var(--panel);
+  border-radius: 17px;
+  box-shadow: var(--panel-glow);
+  border: var(--border-neon);
+  padding: 17px 14px 13px 21px;
+  margin-bottom: 14px;
+  color: var(--fg);
+  font-size: 1.13em;
+  transition: box-shadow 0.2s;
+}
+.eco-card:hover {
+  box-shadow: 0 0 18px #0fffc2, 0 0 40px #34fdfe;
+  border-color: #45ffd6;
+}
+.eco-card strong, .section-title {
+  color: #23ffbf;
+  text-shadow: none;   /* vagy max 0 0 2px #00ffd4cc; */
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.eco-card small, .eco-card span {
+  color: #aee6ff;
+  font-size: 1em;
+  text-shadow: none;
+  font-weight: 400;
+}
+
+.section-title {
+  color: #41f8ff;
+  font-size: 1.14em;
+  margin: 24px 0 13px 14px;
+  letter-spacing: .02em;
+  font-weight: bold;
+}
+.ai-suggestion, .info-panel, .forecast-day, .panel {
+  background: #142229;
+  border-radius: 17px;
+  box-shadow: var(--panel-glow);
+  border: var(--border-neon);
+  color: #aaffeb;
+}
+.map-box, #leafletmap, #wazeFrame {
+  border-radius: 16px !important;
+  box-shadow: 0 0 28px #09ffc2, 0 0 18px #2196f333, 0 0 8px #44f4ae33 !important;
+  border: 2px solid #13e6bb !important;
+  background: #141c24;
+}
+button, .map-btn, .street-btn {
+  background: linear-gradient(90deg,#13e6bb 0%,#35c5ff 100%);
+  color: #0b1e15 !important;
+  border: none;
+  border-radius: 16px;
+  font-weight: 700;
+  padding: 13px 25px;
+  font-size: 1.13em;
+  box-shadow: 0 0 12px #13e6bb99, 0 0 28px #35c5ff33;
+  margin-bottom: 7px;
+  transition: background .22s, color .22s;
+  cursor: pointer;
+}
+button:hover, .map-btn:hover, .street-btn:hover, .darkmode-btn:hover {
+  background: linear-gradient(90deg,#20ffd6 0%,#41f8ff 100%);
+  color: #03120d !important;
+}
+.footer {
+  color: #27d9b7;
+  text-shadow: 0 0 8px #30ffd466;
+  font-size: 1.06em;
+  background: transparent;
+  margin-top: 30px;
+}
+
+
+
+    body {background:var(--bg);font-family:'Montserrat',sans-serif;margin:0;color:var(--fg);min-height:100vh;transition:.4s;}
+    .container {max-width:560px;margin:10px auto 0 auto;padding:10px 0 16px 0;background:var(--panel);
+      border-radius:22px;box-shadow:0 8px 32px rgba(48,89,64,0.17);}
+    h1 {text-align:center;font-size:2.1rem;color:#247a36;margin:6px 0 16px 0;}
+    .ai-suggestion {background:#e3ffe7;border-left:5px solid #58d172;padding:18px 14px 18px 24px;
+      border-radius:16px;font-size:1.14rem;margin-bottom:18px;display:flex;align-items:center;gap:10px;
+      box-shadow:0 2px 8px rgba(85,180,120,0.08);}
+    .ai-suggestion svg {flex-shrink:0;width:26px;height:26px;}
+    .section-title {font-size:1.09rem;color:#28853b;margin:20px 0 11px 8px;font-weight:700;}
+    .eco-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 9px;
+}
+
+@media (max-width: 530px) {
+  .eco-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.eco-card {
+  background: linear-gradient(115deg,#e8f5e9 60%,#d2ffef 100%);
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(63,155,120,0.09);
+  padding: 13px 9px 9px 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;      /* gridhez kötelező! */
+  max-width: 100%;   /* gridhez kötelező! */
+  margin-bottom: 0;  /* gridnél felesleges */
+}
+
+.eco-card strong {font-size:1.06rem;color:#246c38;}
+.eco-card small,.eco-card span {color:#557b61;font-size:.97rem;}
+
+    .eco-icon {font-size:1.11rem;margin-right:7px;}
+    .badges {display:flex;gap:7px;flex-wrap:wrap;margin-top:7px;}
+    .badge {background:#ebffe8;border-radius:8px;padding:3px 7px;font-size:.97em;}
+    .badge.pm10 {background:#f5ffe1;}
+    .badge.no2 {background:#f7f3ff;}
+    .badge.o3 {background:#e2f6ff;}
+    .badge.co {background:#fff4e2;}
+    .challenge-row {display:flex;align-items:center;justify-content:space-between;gap:7px;}
+    .challenge-desc {font-size:1.02rem;color:#187441;font-weight:500;}
+    .challenge-btn {background:#52c77b;color:#fff;border:none;border-radius:10px;padding:7px 15px;
+      font-size:.99rem;font-weight:600;cursor:pointer;transition:background .2s;}
+    .challenge-btn:hover {background:#329758;}
+    .map-header {display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;}
+    .map-btn {background:#d9f5dd;border:none;color:#187a4c;font-weight:700;
+      border-radius:9px;padding:5px 16px;font-size:1.08em;margin-right:8px;cursor:pointer;}
+    .map-btn.selected {background:#33ba72;color:#fff;}
+    .street-btn {background:#f5ffe2;color:#187a4c;border-radius:10px;font-weight:600;
+      padding:4px 16px;font-size:1em;margin-right:2px;cursor:pointer;}
+    .street-btn:hover {background:#e4ffe3;}
+
+    .map-box {width:100%;height:220px;min-height:155px;max-height:350px;position:relative;
+      border-radius:15px;overflow:hidden;box-shadow:0 2px 12px #d6e6d9;}
+    #leafletmap {width:100%;height:100%;border-radius:15px;}
+    .footer {text-align:center;color:#aad2bb;margin:21px 0 7px 0;font-size:.97rem;}
+    .forecast-panel {display:flex;gap:12px;margin:10px 0 0 6px;justify-content: center;}
+    .forecast-day {
+  background:#e7fbf6;
+  padding:6px 7px;
+  border-radius:11px;
+  box-shadow:0 1px 6px #b6e6d5;
+  text-align:center;
+  min-width:55px;
+  font-size:0.97em;
+  margin: 0 2px;
+}
+   .forecast-panel { flex-wrap: wrap; }
+    .forecast-day .day {font-weight:700;color:#167c44;}
+    .forecast-day .icon {font-size:1.5em;}
+    .forecast-day .temp {font-size:1.11em;}
+    .info-panel {text-align:center;font-size:1.04em;margin:3px 0 2px 0;background:#f2fff6;
+      border-radius:10px;padding:4px 0;}
+    .info-panel.front {color:#3477af;}
+    .info-panel.sun {color:#247a36;}
+    .info-panel.pollen {color:#bb6827;}
+    .info-panel.jam {color:#c0132e;}
+    .modal-bg {position:fixed;z-index:9999;left:0;top:0;width:100vw;height:100vh;background:rgba(48,48,48,0.18);display:none;align-items:center;justify-content:center;}
+    .modal-card {background:#fff;border-radius:22px;box-shadow:0 4px 32px #b2c0b3;padding:26px 18px;max-width:340px;text-align:center;}
+    .modal-card h3 {margin:0 0 7px 0;color:#c0132e;font-size:1.21em;}
+    .modal-card .modal-msg {font-size:1.06em;margin-bottom:12px;}
+    .modal-card .modal-ok {margin-top:9px;padding:8px 28px;border:none;background:#248645;color:#fff;font-size:1.04em;border-radius:12px;cursor:pointer;}
+    body.dark {
+      --bg: linear-gradient(120deg,#222c24 0%,#1e2730 100%);
+      --fg: #e3ffe7;
+      --panel: #203628;
+    }
+    body.dark .eco-card, body.dark .forecast-day, body.dark .modal-card {background:#223929!important;color:#a5ffd9;}
+    body.dark h1 {color:#82fcab;}
+    body.dark .ai-suggestion {background:#19361d;color:#88ffaa;}
+    body.dark .footer {color:#427759;}
+    body.dark .map-btn, body.dark .street-btn, body.dark .darkmode-btn {background:#2d4936!important;color:#b1ffde;}
+    @media (max-width:700px){.container{max-width:100vw;} .eco-cards{flex-direction:column;}
+      .map-box{height:190px;min-height:124px;}}
+    @media (max-width:430px){.container{padding:1px;} .eco-card{min-width:90px;} h1{font-size:1.25em;}}
+
+.flagBtn.selected {
+  border-bottom: 3px solid #38d473;
+  background: #e3ffe6;
+  color: #145c2c;
+}
+.flagBtn {
+  transition: 0.15s;
+  border-radius: 8px;
+}
+
+.speech-translate-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 36px;
+  width: 100%;
+  max-width: 560px;      /* Ugyanakkora, mint a .container! */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.speech-translate-panels .panel {
+  background: #e8f5e9;
+  border-radius: 13px;
+  padding: 12px 8px 15px 12px;
+  box-shadow: 0 2px 8px #bce1d1;
+  min-width: 0;
+  max-width: 100%;      /* hogy ne nőjön 280px fölé 2 oszlopos gridben */
+  box-sizing: border-box;
+}
+
+/* Mobilon 1 oszlop, panel max. teljes szélesség */
+@media (max-width: 700px) {
+  .speech-translate-panels {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    max-width: 99vw;
+  }
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  position: relative;
+  margin-bottom: 10px;
+}
+.header-row h1 {
+  flex: 1 1 auto;
+  margin: 0;
+  text-align: center;
+}
+.darkmode-btn {
+  position: relative;
+  right: 0;
+  top: 0;
+  margin-left: 12px;
+  font-size: 1.25em;
+  min-width: 28px;
+  min-height: 28px;
+  background: linear-gradient(90deg,#13e6bb 0%,#35c5ff 100%);
+  color: #031a13 !important;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 0 10px #13e6bb88;
+  z-index: 2;
+  cursor: pointer;
+  transition: background .21s;
+}
+.darkmode-btn:hover {
+  background: linear-gradient(90deg,#41f8ff 0%,#20ffd6 100%);
+}
+
+
+@media (max-width: 650px) {
+  .container {
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 7px 0 14vw 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: var(--panel);
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+  .eco-cards {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    margin-bottom: 18px !important;
+  }
+  .eco-card {
+    border-radius: 15px !important;
+    margin-bottom: 10px !important;
+    padding: 13px 9px 13px 14px !important;
+    font-size: 1.10em !important;
+  }
+  .eco-card strong {font-size: 1.14em;}
+  .ai-suggestion {
+    font-size: 1.07em !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    padding: 14px 8px 14px 15px !important;
+    border-radius: 13px !important;
+    margin-bottom: 13px !important;
+  }
+  h1 {
+    font-size: 1.25em !important;
+    margin-bottom: 9px !important;
+  }
+  .section-title {font-size: 1.08em !important;}
+  .forecast-panel {flex-wrap: wrap;}
+  .forecast-day {
+    min-width: 88px !important;
+    font-size: 1em !important;
+    padding: 9px 5px !important;
+    border-radius: 12px !important;
+  }
+  .map-header {
+    gap: 9px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    margin-bottom: 10px !important;
+  }
+  .map-btn, .street-btn {
+    font-size: 1.12em !important;
+    padding: 11px 14px !important;
+    margin-bottom: 4px !important;
+    min-width: 70vw !important;
+    border-radius: 14px !important;
+  }
+  .map-box, #leafletmap, #wazeFrame {
+    height: 170px !important;
+    min-height: 100px !important;
+    max-height: 220px !important;
+    border-radius: 12px !important;
+  }
+  .speech-translate-panels {
+    grid-template-columns: 1fr !important;
+    gap: 13px !important;
+    max-width: 100vw !important;
+  }
+  .speech-translate-panels .panel {
+    border-radius: 13px !important;
+    padding: 11px 6px 13px 10px !important;
+    font-size: 1.07em !important;
+  }
+  .footer {
+    font-size: .98em !important;
+    padding: 13px 0 10vw 0 !important;
+  }
+  .forecast-day {
+    min-width: 46px !important;
+    font-size: 0.91em !important;
+    padding: 4px 2px !important;
+    border-radius: 9px !important;
+    margin: 0 1px !important;
+  }
+
+}
+
+
+@media (max-width: 650px) {
+  .container {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+  .eco-card, .ai-suggestion, .info-panel, .forecast-day, .panel {
+    box-shadow: 0 0 16px #0fffc2, 0 0 60px #2196f3, 0 0 8px #44f4ae;
+    border: 2px solid #13e6bb;
+    background: #142229cc;
+  }
+}
+
+
+  </style>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body>
+
+
+  <div class="container">
+  <div class="header-row">
+    <h1>🌱 EcoLife AI</h1>
+    <button class="darkmode-btn" id="darkmodeBtn" title="Sötét mód váltás 🌙">🌙</button>
+  </div>
+    <div id="ai-suggestion" class="ai-suggestion">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" stroke-width="2"/><path d="M12 16v-4M12 8h.01" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <span><strong>AI ajánlatod töltődik…</strong></span>
+    </div>
+    <div id="biometeo-forecast-sparkline" style="margin-top:6px; min-height:28px;"></div>
+
+    
+
+    <!-- INFO panelek -->
+    <div id="sun-times-panel" class="info-panel sun"></div>
+    <div id="pressure-panel" class="info-panel front"></div>
+    <div id="forecast-panel" class="forecast-panel"></div>
+    <div id="jam-info-panel" class="info-panel jam"></div>
+    <div class="section-title">🌤 Élő Öko-adatok</div>
+    <div class="eco-cards">
+  
+       <div class="eco-card"><span class="eco-icon">🏙️</span><strong>Hely:</strong>
+        <small id="city">Betöltés…</small></div>
+
+      <div class="eco-card"><span class="eco-icon">🌡️</span><strong>Hőmérséklet:</strong>
+        <small id="weather">Betöltés…</small></div> 
+
+            <div class="eco-card">
+  <span class="eco-icon">🔥</span>
+  <strong>Hőérzet:</strong>
+  <small id="heat-index-panel">Betöltés…</small>
+</div>
+
+<div class="eco-card">
+  <span class="eco-icon">🌞</span>
+  <strong>UV-index előrejelzés:</strong>
+  <small id="uv-panel">Betöltés…</small>
+</div>
+
+
+      <div class="eco-card">
+  <span class="eco-icon">👕</span>
+  <strong>Öltözék most és 8 órán belül:</strong>
+  <div id="clothing-now">Jelenleg betöltés...</div>
+  <div id="clothing-forecast" style="margin-top:2px;font-size:.96em;color:#287c50"></div>
+</div>
+
+
+      <div class="eco-card"><span class="eco-icon">🌬️</span><strong>Levegőminőség:</strong>
+        <small id="air-quality">Betöltés…</small>
+        <div class="badges" id="air-components"></div></div>
+
+      <div class="eco-card"><span class="eco-icon">🌫️</span><strong>Látási viszony, páratartalom, szél:</strong>
+        <small id="atm-panel">Betöltés…</small></div>
+
+<div class="eco-card">
+  <span class="eco-icon">☁️</span>
+  <strong>Felhőzet most és 8 órára előre:</strong>
+  <small id="cloud-panel">Betöltés…</small>
+</div>
+
+<div class="eco-card">
+  <span class="eco-icon">🌧️</span>
+  <strong>Csapadék előrejelzés:</strong>
+  <small id="rain-panel">Betöltés…</small>
+</div>
+
+
+      <div class="eco-card" id="weather-warning-card"><span class="eco-icon">⛈️</span>
+        <strong>Veszélyjelzés:</strong>
+        <div id="weather-warning-details"><small>Betöltés…</small></div></div>
+
+   <div class="eco-card">
+  <span class="eco-icon">🌃</span>
+  <strong>Csillagmegfigyelési ablak:</strong>
+  <small id="astro-window-panel">Betöltés…</small>
+</div>
+
+
+<div class="eco-card">
+  <span class="eco-icon">☄️</span>
+  <strong>Meteorraj / Napfogyatkozás:</strong>
+  <small id="meteor-panel">Betöltés…</small>
+</div>
+
+<div class="eco-card">
+  <span class="eco-icon">🌌</span>
+  <strong>Sarki fény (Aurora):</strong>
+  <small id="aurora-panel">Betöltés…</small>
+</div>
+
+<div class="eco-card">
+  <span class="eco-icon">🌐</span>
+  <strong>Földrengés (utolsó 24 óra):</strong>
+  <small id="earthquake-panel">Betöltés…</small>
+</div>
+
+
+      <div id="allergen-alert-bar" style="display:none;padding:9px 9px 9px 12px;background:#ffe6e6;color:#b51616;border-radius:11px;margin-bottom:8px;font-weight:600;font-size:1.09em;text-align:left;">
+</div>
+</div>
+</div>
+   
+
+<div class="speech-translate-panels">
+  <div class="panel">
+    <div id="speech-translate-panel" style="display:flex;align-items:center;gap:12px;justify-content:flex-start;">
+      <button id="micBtn" style="font-size:1.7em;padding:5px 12px;border-radius:50%;border:2px solid #38d473;background:#e3ffe6;cursor:pointer;">🎤</button>
+      <span style="font-weight:600;font-size:1.08em;">Hangfelismerés</span>
+    </div>
+    <div id="speechResult" style="min-height:2em;text-align:left;font-size:1.09em;color:#207b49;padding:4px 0 8px 0;border-bottom:1px solid #e8f8f0;"></div>
+    <div style="font-size:.96em;color:#888;">(Itt jelenik meg amit bemondtál – ezt másold át a Google Translate-be!)</div>
+  </div>
+  <div class="panel" style="text-align:center;">
+    <a href="https://translate.google.com/" target="_blank" style="display:inline-block;padding:12px 26px;border-radius:13px;background:#36a5f2;color:#fff;font-weight:600;text-decoration:none;margin-top:8px;font-size:1.13em;">Google Translate megnyitása</a>
+    <div style="font-size:.97em;color:#247a36;margin-top:13px;">
+      <b>Google Translate</b><br>
+      Másold be ide a bal oldali szöveget, válaszd ki a célnyelvet!
+    </div>
+  </div>
+</div>
+
+<div class="map-header" style="display:flex;justify-content:center;gap:18px;margin-bottom:10px;">
+
+  <button id="btn2d" class="map-btn selected">2D térkép</button>
+  <button id="btnstreet" class="street-btn"><span style="font-size:1.2em;">📷</span> Utcakép</button>
+</div>
+
+<!-- Közös térképtartó doboz, max-width egyezik! -->
+<div style="width:100%;max-width:600px;margin:0 auto;">
+  <div class="ecomap-title" style="text-align:center;font-size:1.22em;font-weight:600;margin-bottom:10px;">
+    🗺️ Élő 2D térkép & POI / Utcakép
+  </div>
+  <div class="map-box" style="width:100%;margin-bottom:15px;">
+    <div id="leafletmap" style="width:100%;height:250px;border-radius:14px;box-shadow:0 2px 14px #9ee0b1;"></div>
+  </div>
+
+    <!-- Waze térkép -->
+  <div class="map-box" style="width:100%;margin-bottom:0;">
+    <iframe id="wazeFrame"
+      src="https://embed.waze.com/iframe?zoom=11&lat=47.191&lon=19.445"
+      width="100%" height="250"
+      style="width:100%;border-radius:14px;border:2px solid #c3ebca;box-shadow:0 2px 14px #9ee0b1;display:block;margin:0 auto;"
+      allowfullscreen></iframe>
+    <div style="font-size:.96em;color:#207b49;margin-top:3px;text-align:center;">
+      Waze forgalmi térkép (nagyítható, frissülő adatok)
+      <br>
+      <a href="https://www.waze.com/hu/live-map/" target="_blank" style="color:#1984ce;">Waze Live Map (új ablakban)</a>
+    </div>
+  </div>
+
+</div>
+
+
+
+
+
+    <div id="traffic-info" style="text-align:center; margin:10px 0; color:#1e6b1a; font-size:1.08em;"></div>
+    
+    
+    <div id="omsz-radar" style="margin:18px 0 0 0;text-align:center;">
+      <img src="https://www.met.hu/idojaras/radar/radar_animation.gif"
+       alt="OMSZ radar"
+       style="max-width:98%;border-radius:16px;box-shadow:0 2px 18px #8888;">
+      <br>
+      <span style="font-size:.98em;color:#237a36;">
+        OMSZ hivatalos radar (statikus kép, 15p frissítés)
+      </span>
+      <div style="margin-top:12px;">
+        <button onclick="window.open('https://www.met.hu/idojaras/aktualis_idojaras/radar/', '_blank', 'width=950,height=750')"
+          style="background:#e8ffeb;color:#247a36;padding:7px 19px;border-radius:9px;border:none;cursor:pointer;font-size:1.06em;">
+          OMSZ Radar (valósidejű, teljes oldal)
+        </button>
+      </div>
+    </div>
+    <div class="footer">
+      &copy; 2025 EcoLife AI | <span style="color:#7bbd97">Mobil-optimalizált, radar+események, előrejelzés, sötét mód</span>
+    </div>
+    <div class="modal-bg" id="alertModal">
+      <div class="modal-card">
+        <h3 id="modalTitle">Figyelem!</h3>
+        <div class="modal-msg" id="modalMsg">Valamilyen veszély!</div>
+        <button class="modal-ok" onclick="document.getElementById('alertModal').style.display='none'">OK</button>
+      </div>
+    </div>
+  </div>
+
+
+<!-- Tünet rögzítés + AI elemző gombok -->
+<div style="margin:28px 0 8px 0;text-align:center;">
+  <button onclick="openSymptomDiary()" style="font-weight:600;margin-right:14px;">Tünet rögzítés</button>
+  <button onclick="showSymptomAnalysis()" style="font-weight:600;margin-right:14px;">AI elemző</button>
+  <button onclick="deleteSymptomDiary()" style="font-weight:600;background:#f55;color:#fff;
+    border:none;padding:9px 20px;border-radius:18px;box-shadow:0 2px 12px #f55a;cursor:pointer;">Napló törlése</button>
+</div>
+
+
+<!-- Tünet rögzítés modal -->
+<div id="symptomModal" style="display:none;position:fixed;top:16%;left:50%;transform:translateX(-50%);
+  background:#fff; color:#202e28; z-index:1111; padding:22px 22px 14px 22px; border-radius:20px;
+  box-shadow:0 2px 22px #0005;width:90vw;max-width:410px;">
+  <h3 style="margin-top:0;color:#24b06b;font-weight:700;">Mai tünetek</h3>
+  <label style="color:#16513f;"><input type="checkbox" id="cb-fejfajas" style="accent-color:#16e5bb;margin-right:7px;"> Fejfájás</label><br>
+  <label style="color:#16513f;"><input type="checkbox" id="cb-faradtsag" style="accent-color:#16e5bb;margin-right:7px;"> Fáradtság</label><br>
+  <label style="color:#16513f;"><input type="checkbox" id="cb-alvaszavar" style="accent-color:#16e5bb;margin-right:7px;"> Alvászavar</label><br>
+  <label style="color:#16513f;"><input type="checkbox" id="cb-ingerkekenyseg" style="accent-color:#16e5bb;margin-right:7px;"> Ingerlékenység</label><br>
+  <label style="color:#16513f;">Egyéb: <input type="text" id="inp-egyeb" style="width:68%;margin-left:3px;color:#202e28;background:#f4fffb;border-radius:8px;padding:3px 8px;border:1px solid #b6e5d1;"></label><br>
+  <div style="margin-top:16px;">
+    <button onclick="saveSymptomDiary()" style="font-weight:600;background:linear-gradient(90deg,#24b06b,#2dd0ff);color:#fff;border:none;border-radius:18px;padding:9px 28px;font-size:1.07em;box-shadow:0 2px 12px #16e5bb28;cursor:pointer;">Mentés</button>
+    <button onclick="document.getElementById('symptomModal').style.display='none'" style="float:right;margin-top:2px;font-weight:600;background:#e9ecef;color:#2b2b2b;border:none;border-radius:18px;padding:8px 22px;font-size:1.02em;box-shadow:0 2px 7px #bbb4;cursor:pointer;">Bezár</button>
+  </div>
+</div>
+
+<!-- AI elemzés modal -->
+<div id="symptom-analysis-modal" style="display:none;position:fixed;top:14%;left:50%;transform:translateX(-50%);
+  background:#f6fff6; color:#204d3b; z-index:1120; padding:22px 18px 22px 18px; border-radius:18px;
+  box-shadow:0 2px 22px #0005; width:95vw; max-width:490px;">
+  <h3 style="margin-top:0;color:#24b06b;font-weight:700;">Tünet–biometeo összefüggések (AI)</h3>
+  <div id="symptom-analysis-result" style="margin-bottom:8px"></div>
+  <canvas id="symptom-diagram" width="400" height="110" style="background:#fff;border-radius:8px"></canvas>
+  <button onclick="document.getElementById('symptom-analysis-modal').style.display='none'" style="margin-top:13px;font-weight:600;background:#e9ecef;color:#2b2b2b;border:none;border-radius:18px;padding:8px 22px;font-size:1.02em;box-shadow:0 2px 7px #bbb4;cursor:pointer;">Bezár</button>
+</div>
+
+
+<script>
+
+
+
+function formatEventTime(dtString, nowString) {
+  let dt = new Date(dtString);
+  let now = new Date(nowString || Date.now());
+  let hour = ("0"+dt.getHours()).slice(-2);
+  let min = ("0"+dt.getMinutes()).slice(-2);
+
+  if (
+    now.getFullYear() === dt.getFullYear() &&
+    now.getMonth() === dt.getMonth()
+  ) {
+    if (dt.getDate() === now.getDate()) {
+      return `ma ${hour}:${min}`;
+    } else if (dt.getDate() === now.getDate() + 1) {
+      return `holnap ${hour}:${min}`;
+    }
+  }
+  return `${dt.getFullYear()}.${("0"+(dt.getMonth()+1)).slice(-2)}.${("0"+dt.getDate()).slice(-2)}. ${hour}:${min}`;
+}
+
+
+const meteorShowers = [
+  { name: "Quadrantidák", from: "2025-01-03", to: "2025-01-04" },
+  { name: "Perseidák", from: "2025-08-11", to: "2025-08-13" },
+  { name: "Geminidák", from: "2025-12-13", to: "2025-12-15" }
+];
+const solarEclipses = [
+  { name: "Teljes napfogyatkozás", date: "2026-08-12" }
+];
+function updateMeteorPanel() {
+  const todayStr = new Date().toISOString().slice(0,10);
+  const activeShowers = meteorShowers.filter(m =>
+    todayStr >= m.from && todayStr <= m.to
+  );
+  const eclipseToday = solarEclipses.find(e =>
+    todayStr === e.date
+  );
+  let msg = "";
+  if (activeShowers.length)
+    msg += `Ma éjjel <b>${activeShowers.map(m=>m.name).join(", ")}</b> maximum! Figyeld az eget!<br>`;
+  if (eclipseToday)
+    msg += `Ma <b>${eclipseToday.name}</b> – részletek: <a href="https://www.timeanddate.com/eclipse/" target="_blank">időpont, info</a>`;
+  if (!msg) msg = "Ma nincs kiemelkedő meteorraj/nagyszabású égi esemény.";
+  document.getElementById('meteor-panel').innerHTML = msg;
+}
+function updateAuroraPanel() {
+  fetch("https://services.swpc.noaa.gov/json/ovation_aurora_latest.json")
+    .then(r => r.json())
+    .then(data => {
+      let kp = Number(data.Kp || data.kp || 0);
+      let msg = "";
+      if (kp < 5) {
+        msg = "Ma nem várható sarki fény Magyarországon.<br>Kp-index: <b>" + kp + "</b>";
+      } else if (kp >= 5 && kp < 7) {
+        msg = "Nagyon kis eséllyel, de előfordulhat halvány sarki fény.<br>Kp-index: <b>" + kp + "</b><br><span style='color:#f4d442'>Tiszta, sötét égbolt kell!</span>";
+      } else if (kp >= 7 && kp < 8) {
+        msg = "<b>Lehetséges halvány sarki fény!</b><br>Kp-index: <b>" + kp + "</b><br><span style='color:#67f414'>Figyeld az északi égboltot!</span>";
+      } else if (kp >= 8) {
+        msg = "<b>Erős geomágneses vihar!</b><br><span style='color:#7ef441'>Magyarország nagy részén is látható lehet a sarki fény!</span><br>Kp-index: <b>" + kp + "</b>";
+      }
+      document.getElementById('aurora-panel').innerHTML = msg;
+    })
+    .catch(() => {
+      document.getElementById('aurora-panel').textContent = "Sarki fény előrejelzés nem elérhető.";
+    });
+}
+
+function updateRainPanel(weather) {
+  if (!weather.hourly || !weather.hourly.precipitation || !weather.hourly.time || !weather.hourly.weathercode) {
+    document.getElementById('rain-panel').textContent = "Nincs adat.";
+    return;
+  }
+  const now = new Date();
+  const hours = weather.hourly.time;
+  const precip = weather.hourly.precipitation;
+  const codes = weather.hourly.weathercode;
+  let todayStr = now.getFullYear() + '-' + ('0'+(now.getMonth()+1)).slice(-2) + '-' + ('0'+now.getDate()).slice(-2);
+
+  // --- Minden órára, minden csapadéktípusra (eső, zápor, zivatar, szitálás) külön figyelünk! ---
+  const rainTypes = [51,53,55,56,57,61,63,65,80,81,82,95,96,99];
+  let rainPeriods = [];
+  let rainSum = 0, startIdx = null;
+
+  for (let i = 0; i < hours.length; i++) {
+    if (!hours[i].startsWith(todayStr)) continue;
+    const isRain = rainTypes.includes(codes[i]);
+    if (isRain && startIdx === null) startIdx = i;
+    if ((!isRain || i === hours.length-1) && startIdx !== null) {
+      let endIdx = (isRain && i === hours.length-1) ? i : i-1;
+      rainPeriods.push({start: startIdx, end: endIdx});
+      startIdx = null;
+    }
+    if (isRain) rainSum += precip[i] || 0;
+  }
+
+  let txt = "";
+  if (!rainPeriods.length) {
+    txt = "Ma <b>nem várható csapadék</b>.";
+  } else {
+    rainPeriods.forEach(period => {
+      // --- Pontosabb (óra:perc) kezdő- és záróidő ---
+      let dStart = new Date(hours[period.start]);
+      let dEnd   = new Date(hours[period.end]);
+      let startStr = dStart.getHours() + ":" + ('0'+dStart.getMinutes()).slice(-2);
+      let endStr   = dEnd.getHours() + ":" + ('0'+dEnd.getMinutes()).slice(-2);
+
+      let periodCodes = codes.slice(period.start, period.end+1);
+      let mainType = "eső";
+      if (periodCodes.some(c=>[95,96,99].includes(c))) mainType = "zivatar";
+      else if (periodCodes.some(c=>[51,53,55,56,57].includes(c))) mainType = "szitálás";
+      else if (periodCodes.some(c=>[80,81,82].includes(c))) mainType = "zápor";
+      txt += `${mainType.charAt(0).toUpperCase()+mainType.slice(1)} várható <b>${startStr}</b>-tól <b>${endStr}</b>-ig.<br>`;
+    });
+    txt += `Várható összes csapadék: <b>${rainSum.toFixed(1)} mm</b>`;
+  }
+  document.getElementById('rain-panel').innerHTML = txt;
+}
+
+function findNextRainMinutes(weather, threshold = 0.1) {
+  if (!weather.hourly || !weather.hourly.precipitation || !weather.hourly.time) return null;
+  let now = new Date(weather.current_weather.time);
+  let nowIdx = weather.hourly.time.findIndex(x => x.startsWith(weather.current_weather.time.slice(0,13)));
+  for (let i = nowIdx + 1; i < weather.hourly.time.length; i++) {
+    if ((weather.hourly.precipitation[i] || 0) > threshold) {
+      let t = new Date(weather.hourly.time[i]);
+      let diff = Math.round((t - now) / 60000); // perc
+      let hour = Math.floor(diff / 60);
+      let min = diff % 60;
+      return {
+        minutes: diff,
+        hour: t.getHours(),
+        min: ('0'+t.getMinutes()).slice(-2),
+        hourPart: hour,
+        minPart: min
+      };
+    }
+  }
+  return null;
+}
+
+
+function updateEarthquakePanel() {
+  // USGS GeoJSON API – M0+ földrengések az elmúlt 24 órában, Európa
+  fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson")
+    .then(r => r.json())
+    .then(data => {
+      // Magyarország, szomszédos régió bounding box: 45-49N, 16-23E
+      const quakes = data.features.filter(f => {
+        const [lon, lat, depth] = f.geometry.coordinates;
+        return lat > 45 && lat < 49 && lon > 16 && lon < 23;
+      });
+      let msg = "";
+      if (!quakes.length) {
+        msg = "Nincs jelentett földrengés Magyarországon az elmúlt 24 órában.";
+      } else {
+        // Csak a legerősebb (legnagyobb magnitúdó) földrengést mutatjuk
+        quakes.sort((a, b) => b.properties.mag - a.properties.mag);
+        const q = quakes[0];
+        const mag = q.properties.mag;
+        const place = q.properties.place.replace("of ", "");
+        const depth = Math.round(q.geometry.coordinates[2]);
+        const time = new Date(q.properties.time).toLocaleString("hu-HU", {hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit"});
+        msg = `Utolsó 24 órában: <b>${mag}M</b>, ${place}, <span style="color:#4d6f8c">${depth} km mélységben</span> <span style="color:#666">(${time})</span>`;
+        if (quakes.length > 1) msg += `<br><span style="color:#8c8c8c">(${quakes.length} rengés detektálva)</span>`;
+      }
+      document.getElementById('earthquake-panel').innerHTML = msg;
+    })
+    .catch(() => {
+      document.getElementById('earthquake-panel').textContent = "Nem sikerült lekérni a földrengés adatokat.";
+    });
+}
+
+
+
+function updateUvPanel(weather) {
+  const uvElem = document.getElementById('uv-panel');
+  const now = new Date();
+
+  // Napkelte és napnyugta (pl. 2025-09-07T05:57)
+  let sunrise = weather.daily && weather.daily.sunrise && weather.daily.sunrise[0]
+      ? new Date(weather.daily.sunrise[0])
+      : null;
+  let sunset = weather.daily && weather.daily.sunset && weather.daily.sunset[0]
+      ? new Date(weather.daily.sunset[0])
+      : null;
+
+  // Ha nincs napkelte/napnyugta adat, fallback: 6–19h
+  if (!sunrise || !sunset) {
+    const hour = now.getHours();
+    if (hour < 6 || hour >= 19) {
+      uvElem.textContent = "Most nincs UV-sugárzás – este van!";
+      return;
+    }
+  } else {
+    // Ha most naplemente után vagyunk, írja ezt:
+    if (now < sunrise || now >= sunset) {
+      uvElem.textContent = "Most nincs UV-sugárzás – naplemente után!";
+      return;
+    }
+  }
+
+  // ... innen jöhet a megszokott UV-panel logika:
+  if (!weather.hourly || !weather.hourly.uv_index || !weather.hourly.time) {
+    uvElem.textContent = "Nincs adat.";
+    return;
+  }
+  let maxUv = -1, maxIdx = -1;
+  let hours = [];
+  let todayStr = now.toISOString().slice(0, 10);
+  for (let i = 0; i < weather.hourly.time.length; i++) {
+    if (weather.hourly.time[i].slice(0,10) === todayStr) {
+      let uv = weather.hourly.uv_index[i];
+      if (uv > maxUv) {
+        maxUv = uv;
+        maxIdx = i;
+      }
+      let h = Number(weather.hourly.time[i].slice(11,13));
+      if (uv >= 7 && h >= 11 && h <= 16) {
+        hours.push(`${h}:00 (${uv.toFixed(1)})`);
+      }
+    }
+  }
+  let msg = "";
+  if (maxUv < 0) {
+    msg = "Nincs adat.";
+  } else if (hours.length) {
+    msg = `Ma <b>${hours.join(", ")}</b> extrém UV várható! <span style="color:#bb3d14">Kerüld a tűző napot!</span>`;
+  } else if (maxUv >= 7) {
+    let h = weather.hourly.time[maxIdx].slice(11,13);
+    msg = `Ma <b>${h}:00</b>-kor extrém UV várható (${maxUv.toFixed(1)}). <span style="color:#bb3d14">Fokozott védelem szükséges!</span>`;
+  } else {
+    msg = `Ma a maximum UV-index: <b>${maxUv.toFixed(1)}</b> (${maxUv >= 5 ? "magas" : "mérsékelt"}).`;
+  }
+  uvElem.innerHTML = msg;
+}
+
+
+
+function getDressTip(temp, wind, humidity) {
+  let dress = "";
+  if (temp >= 29) dress = "Könnyű nyári ruha, sapka, sok folyadék!";
+  else if (temp >= 22) dress = "Rövid ujjú póló, könnyű nadrág ajánlott.";
+  else if (temp >= 17) dress = "Hosszú ujjú póló, vékony pulóver.";
+  else if (temp >= 12) dress = "Könnyű dzseki, réteges öltözet.";
+  else if (temp >= 5) dress = "Melegebb kabát, pulóver, sál.";
+  else if (temp >= -3) dress = "Téli kabát, sapka, sál, kesztyű!";
+  else dress = "Extrém hideg! Vastag, réteges téli öltözet, sapka, sál, kesztyű kötelező!";
+  if (wind > 18) dress += " (Erős szél miatt hidegebbnek érződik!)";
+  if (humidity > 85 && temp > 18) dress += " (Magas páratartalom miatt fülledtebbnek érződik.)";
+  return dress;
+}
+
+function makeAirBadge(type, val) {
+  let bg = "#ebffe8", txt = "#234";
+  if (type === "pm10") {
+    if (val >= 50) { bg = "#e66565"; txt="#fff"; }
+    else if (val >= 25) { bg = "#ffe66a"; txt="#333"; }
+    else { bg = "#e7ffd8"; txt="#246c38"; }
+  }
+  if (type === "no2") {
+    if (val >= 0.2) { bg = "#e66565"; txt="#fff"; }
+    else if (val >= 0.1) { bg = "#ffe66a"; txt="#333"; }
+    else { bg = "#e7ffd8"; txt="#246c38"; }
+  }
+  if (type === "o3") {
+    if (val >= 120) { bg = "#e66565"; txt="#fff"; }
+    else if (val >= 90) { bg = "#ffe66a"; txt="#333"; }
+    else { bg = "#e7ffd8"; txt="#246c38"; }
+  }
+  if (type === "co") {
+    if (val >= 6000) { bg = "#e66565"; txt="#fff"; }
+    else if (val >= 4000) { bg = "#ffe66a"; txt="#333"; }
+    else { bg = "#e7ffd8"; txt="#246c38"; }
+  }
+  // magyar felirat
+  let label = type === "pm10" ? "PM10" :
+              type === "no2" ? "NO₂" :
+              type === "o3" ? "O₃" :
+              type === "co" ? "CO" : type;
+  return `<span class="badge" style="background:${bg};color:${txt};font-weight:600;margin-right:5px;margin-bottom:4px;">
+    ${label}: ${val} µg/m³
+  </span>`;
+}
+
+
+function updateAstroWindowPanel(weather) {
+  let cloudArr = weather.hourly.cloudcover || [];
+  let rainArr = weather.hourly.precipitation || [];
+  let timeArr = weather.hourly.time || [];
+  let bestStart = null, bestLen = 0;
+
+  // Este 21:00–03:00 között keresünk legalább 2 egymást követő derült órát
+  for (let i = 0; i < timeArr.length - 1; i++) {
+    let dt = new Date(timeArr[i]);
+    let hour = dt.getHours();
+    // Csak este/éjjel, 21:00-tól 3:00-ig (másnap hajnal)
+    if (!((hour >= 21 && hour <= 23) || (hour >= 0 && hour <= 3))) continue;
+
+    let ok = (cloudArr[i] < 30 && rainArr[i] === 0 && cloudArr[i+1] < 30 && rainArr[i+1] === 0);
+    if (ok) {
+      bestStart = timeArr[i];
+      bestLen = 2;
+      // nézd tovább, hány egymás utáni derült óra van
+      for (let j = i+2; j < timeArr.length; j++) {
+        let h2 = new Date(timeArr[j]).getHours();
+        if (!((h2 >= 21 && h2 <= 23) || (h2 >= 0 && h2 <= 3))) break;
+        if (cloudArr[j] < 30 && rainArr[j] === 0) bestLen++;
+        else break;
+      }
+      break;
+    }
+  }
+
+  let txt = "";
+  if (bestStart) {
+    let dt = new Date(bestStart);
+    let timeStr = dt.toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});
+    txt = `Ma este <b>${timeStr}</b>-tól legalább ${bestLen} órán át derült égbolt – kiváló feltételek csillagmegfigyeléshez!`;
+  } else {
+    txt = "Ma este 21:00 után borult vagy felhős égbolt várható – nem ideális csillagászathoz.";
+  }
+  document.getElementById('astro-window-panel').innerHTML = txt;
+}
+
+
+// --- 8 órás előrejelzés kiírása
+function updateClothingBlock(weather) {
+  // Jelenlegi adatok
+  let tNow = weather.current_weather.temperature;
+  let idxNow = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+  let windNow = weather.hourly.windspeed_10m[idxNow] || 0;
+  let humNow = weather.hourly.relative_humidity_2m[idxNow] || 0;
+  document.getElementById('clothing-now').innerHTML = "<b>Most:</b> " + getDressTip(tNow, windNow, humNow);
+
+  // 8 órával későbbi adatok (ha elérhető)
+  let idx8h = idxNow + 8;
+  if (weather.hourly.temperature_2m[idx8h] !== undefined) {
+    let t8h = weather.hourly.temperature_2m[idx8h];
+    let w8h = weather.hourly.windspeed_10m[idx8h] || 0;
+    let h8h = weather.hourly.relative_humidity_2m[idx8h] || 0;
+    document.getElementById('clothing-forecast').innerHTML =
+      "<b>Várhatóan 8 óra múlva:</b> " + getDressTip(t8h, w8h, h8h) +
+      ` <span style="color:#7ba886;font-size:.93em">(${Math.round(t8h)}°C)</span>`;
+  } else {
+    document.getElementById('clothing-forecast').innerHTML = "Előrejelzés nem elérhető.";
+  }
+}
+
+function renderBioMeteoSparkline(weather, atm, air) {
+  if (!weather.hourly || !weather.hourly.time) return "";
+  let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+  if (nowIdx < 0) nowIdx = 0;
+
+  let html = `<div id="biometeo-sparkline-row" style="display:flex;gap:2px;align-items:flex-end;">`;
+  // *** 24 órás ciklus ***
+  for (let i = nowIdx; i < Math.min(weather.hourly.time.length, nowIdx+24); i++) {
+    let biom = calcBiometeoLevel(weather, atm, air, i, nowIdx); // most átadja a nowIdx-et is!
+    let terheles = biom.level;
+    let reasons = biom.reasons.length ? biom.reasons : ["–"];
+    let color = ["#21d687","#dbb52d","#e6664c"][terheles];
+    let hour = new Date(weather.hourly.time[i]).getHours();
+    let levelText = ["Alacsony","Közepes","Magas"][terheles];
+    // Magyarázat: ok-lista magyarul, szebb formában
+    let magyarOk = reasons.map(r => {
+      if (r === "front") return "front";
+      if (r === "páratartalom") return "páratartalom";
+      if (r === "szél") return "erős szél";
+      if (r === "UV") return "magas UV";
+      if (r === "légszennyezés") return "légszennyezés";
+      return r;
+    }).join(", ");
+    html += `<div class="biometeo-bar" 
+        data-hour="${hour}" 
+        data-level="${levelText}" 
+        data-reasons="${magyarOk}"
+        style="width:13px;height:${18+terheles*14}px;background:${color};border-radius:4px 4px 0 0;cursor:pointer;"
+        title="${hour}:00 – ${levelText} (${magyarOk})"
+      ></div>`;
+  }
+  html += `</div>
+  <div id="biometeo-bar-info" style="font-size:.98em;color:#7ba886;margin-top:2px;min-height:20px;text-align:center;"></div>
+  `;
+  document.getElementById("biometeo-forecast-sparkline").innerHTML = html;
+
+  // --- Touch/hover esemény mobilra/PC-re:
+  document.querySelectorAll('.biometeo-bar').forEach(bar => {
+    bar.addEventListener('mouseover', function() {
+      document.getElementById('biometeo-bar-info').innerHTML =
+        `<b>${this.dataset.hour}:00</b> – <b>${this.dataset.level}</b> (${this.dataset.reasons})`;
+    });
+    bar.addEventListener('mouseout', function() {
+      document.getElementById('biometeo-bar-info').textContent = '';
+    });
+    // Mobilon tap:
+    bar.addEventListener('touchstart', function(e) {
+      document.getElementById('biometeo-bar-info').innerHTML =
+        `<b>${this.dataset.hour}:00</b> – <b>${this.dataset.level}</b> (${this.dataset.reasons})`;
+      e.preventDefault();
+    });
+  });
+}
+
+
+
+
+// === SUN TIMES (napkelte/napnyugta) ===
+function getSunTimes(lat, lon) {
+  const d = new Date();
+  const y = d.getFullYear(), m = d.getMonth()+1, day = d.getDate();
+  return fetch(`https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=${y}-${m<10?'0'+m:m}-${day<10?'0'+day:day}&formatted=0`)
+    .then(res => res.json())
+    .then(data => ({
+      sunrise: new Date(data.results.sunrise).toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'}),
+      sunset: new Date(data.results.sunset).toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'})
+    }));
+}
+
+// --- BKK Budapest buszmegálló élő járat infó lekérése ---
+function showBkkBusArrivals(stopId, marker) {
+  // Mostani idő (óra:perc formátum)
+  const now = new Date();
+  const nowStr = ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2);
+  // Keresd ki az indulásokat az adott megállóból, amelyek még előtted vannak ma
+  let departures = stopTimes.filter(s =>
+    s.stop_id === stopId && s.departure >= nowStr
+  );
+  // Ha nincs már indulás ma, jelezzük
+  if (!departures.length) {
+    marker.bindPopup("<b>Ma már nincs indulás ebből a megállóból.</b>").openPopup();
+    return;
+  }
+  // Csak az első 8 indulást mutatjuk (vagy amennyit szeretnél)
+  departures = departures.slice(0, 8);
+  let info = departures.map(arr =>
+  `<b>${arr.route_id}</b> → <span style="color:#247a36">${arr.trip_headsign||""}</span> – indulás: <b>${arr.departure}</b>`
+).join("<br>");
+
+  marker.bindPopup(`<b>Következő indulások (nem élő menetrend):</b><br>${info}`).openPopup();
+}
+
+
+// --- München MVV élő indulások ---
+async function showMunichStopDepartures(stopName, marker) {
+  try {
+    const res = await fetch(`https://api.mvv.app/api/locate?query=${encodeURIComponent(stopName)}`);
+    const locations = await res.json();
+    if (!locations.length) {
+      marker.bindPopup(`<b>Nincs ilyen megálló az MVV rendszerében!</b>`).openPopup();
+      return;
+    }
+    let stopId = locations[0].id;
+    const depRes = await fetch(`https://api.mvv.app/api/departure?station=${stopId}`);
+    const depData = await depRes.json();
+    if (!depData.departures || !depData.departures.length) {
+      marker.bindPopup("<b>Nincs indulás az elkövetkező 30 percben!</b>").openPopup();
+      return;
+    }
+    function getTransportIcon(type, label) {
+      if (/^U\d+/.test(label))   return "🚇";
+      if (/^S\d+/.test(label))   return "🚈";
+      if (/^(RB|RE|IC|EC|ICE)/.test(label)) return "🚄";
+      if (/^(N?\d{1,3})$/.test(label)) return "🚌";
+      if (/^(T|Tram|\d{1,2})/.test(label)) return "🚋";
+      return "🚍";
+    }
+    let html = depData.departures.slice(0,14).map(dep =>
+      `<span style="font-size:1.3em">${getTransportIcon(dep.product, dep.label)}</span> 
+      <b>${dep.label}</b> → <span style="color:#1a8fba">${dep.destination}</span>
+      <span style="color:#5c9d33;">(${dep.departureTimeMinutes} perc múlva)</span>`
+    ).join('<br>');
+    marker.bindPopup(
+      `<div style="min-width:210px">
+        <b>Élő indulások (${stopName}):</b><br>
+        ${html}
+        <br><a href="https://efa.mvv-muenchen.de/index.html#trip@enquiry" target="_blank" style="font-size:.93em;color:#2486cc;">MVV Fahrplanauskunft</a>
+      </div>`
+    ).openPopup();
+  } catch (e) {
+    marker.bindPopup("<b>Nem sikerült lekérni az élő menetrendet.</b>").openPopup();
+  }
+}
+
+// --- Hőérzet számítás: Humidex, Heat Index, Windchill ---
+function calcHumidex(tempC, humidity) {
+  let e = (humidity/100) * 6.105 * Math.exp(17.27 * tempC / (237.7 + tempC));
+  return Math.round(tempC + 0.5555 * (e - 10));
+}
+function calcHeatIndex(tempC, humidity) {
+  let tempF = tempC * 9/5 + 32;
+  let hiF = -42.379 + 2.04901523*tempF + 10.14333127*humidity
+    - 0.22475541*tempF*humidity
+    - 0.00683783*tempF*tempF
+    - 0.05481717*humidity*humidity
+    + 0.00122874*tempF*tempF*humidity
+    + 0.00085282*tempF*humidity*humidity
+    - 0.00000199*tempF*tempF*humidity*humidity;
+  if (hiF < tempF) hiF = tempF;
+  return Math.round((hiF-32)*5/9);
+}
+function calcWindChill(tempC, windKmh) {
+  if (tempC > 10 || windKmh < 4.8) return tempC;
+  return Math.round(13.12 + 0.6215*tempC - 11.37*Math.pow(windKmh,0.16) + 0.3965*tempC*Math.pow(windKmh,0.16));
+}
+
+// --- BIOMETEOROLÓGIAI TERHELÉS KIÉRTÉKELÉS ---
+function getBioMeteoSummary(weather, atm, air) {
+  const biometeoDetailedInfo = {
+    "gyors légnyomáscsökkenés": "A hirtelen légnyomáscsökkenés érzékenyeknél fejfájást, migrént, vérnyomás-ingadozást okozhat.",
+    "gyors légnyomásnövekedés": "A légnyomás gyors emelkedése idegrendszeri zavarokat, szédülést, álmosságot okozhat.",
+    "magas páratartalom": "A magas páratartalom fáradtságot, bágyadtságot, nehezebb légzést, fulladást válthat ki.",
+    "alacsony páratartalom": "Az alacsony páratartalom köhögést, szem- és nyálkahártya-irritációt okozhat.",
+    "erős szél": "Az erős szél ingerlékenységet, fejfájást, koncentrációzavart okozhat.",
+    "magas UV-sugárzás": "A magas UV-sugárzás fejfájást, bőrpírt, szemirritációt okozhat. Fokozott védelem szükséges.",
+    "légszennyezés": "A légszennyezés (pl. PM10, NO₂, O₃) fejfájást, köhögést, légúti panaszokat, fáradtságot, asztmás tüneteket válthat ki, különösen érzékenyeknél, időseknél, gyerekeknél."
+  };
+  let terheles = 0, risks = [];
+
+  // --- LÉGNYOMÁS VÁLTOZÁS ---
+  let pressureDrop = false, pressureRise = false;
+  if (weather && weather.hourly && weather.hourly.pressure_msl && weather.hourly.time) {
+    let nowIdx = weather.hourly.time.findIndex(x => x.startsWith(weather.current_weather.time.slice(0, 13)));
+    if (nowIdx < 0) nowIdx = 0;
+    let curr = weather.hourly.pressure_msl[nowIdx];
+    let ahead = [];
+    for (let i = nowIdx + 1; i < Math.min(nowIdx + 5, weather.hourly.pressure_msl.length); i++) {
+      ahead.push(weather.hourly.pressure_msl[i]);
+    }
+    if (ahead.length > 0) {
+      let min = Math.min(...ahead), max = Math.max(...ahead);
+      if (curr - min >= 5) { pressureDrop = true; terheles++; risks.push("gyors légnyomáscsökkenés"); }
+      if (max - curr >= 5) { pressureRise = true; terheles++; risks.push("gyors légnyomásnövekedés"); }
+    }
+  }
+
+  // --- PÁRATARTALOM ---
+  let highHumidity = atm && atm.humidity && atm.humidity >= 75;
+  let lowHumidity = atm && atm.humidity && atm.humidity <= 35;
+  if (highHumidity) { terheles++; risks.push("magas páratartalom"); }
+  if (lowHumidity) { terheles++; risks.push("alacsony páratartalom"); }
+
+  // --- SZÉL ---
+  let strongWind = atm && atm.wind && atm.wind >= 30;
+  if (strongWind) { terheles++; risks.push("erős szél"); }
+
+  // --- UV INDEX --- (csak ha elérhető)
+  let highUV = false;
+  if (weather && weather.hourly && weather.hourly.uv_index && weather.hourly.time) {
+    let nowIdx = weather.hourly.time.findIndex(x => x.startsWith(weather.current_weather.time.slice(0, 13)));
+    if (nowIdx < 0) nowIdx = 0;
+    let nextUV = weather.hourly.uv_index[nowIdx];
+    if (nextUV >= 6) { highUV = true; terheles++; risks.push("magas UV-sugárzás"); }
+  }
+
+  // --- LÉGSZENNYEZETTSÉG (PM2.5, O3, NO2, CO) ---
+  let airPol = air && air.components && (
+    (air.components.pm2_5 && air.components.pm2_5 > 18) ||
+    (air.components.o3 && air.components.o3 > 80) ||
+    (air.components.pm10 && air.components.pm10 > 25) ||
+    (air.components.no2 && air.components.no2 > 0.1) ||
+    (air.components.co && air.components.co > 4000)
+  );
+  if (airPol) { terheles++; risks.push("légszennyezés"); }
+
+  // --- LÉGSZENNYEZÉS OKA (magyarázó szöveg, ha rossz az érték) ---
+  let airCause = "";
+  if (air && air.components) {
+    if (air.components.pm10 && air.components.pm10 >= 25) {
+      airCause = "A magas szállópor (PM10) szint oka lehet: városi forgalom, ipar, lakossági fűtés vagy pollen.";
+    } else if (air.components.no2 && air.components.no2 >= 0.1) {
+      airCause = "A magas nitrogén-dioxid (NO₂) szint főleg dízelautók, ipari tevékenység vagy tüzelés miatt emelkedett.";
+    } else if (air.components.o3 && air.components.o3 >= 90) {
+      airCause = "Az ózon (O₃) szint emelkedését erős napsütés és szennyezőanyagok kölcsönhatása okozhatja (városi szmog).";
+    } else if (air.components.co && air.components.co >= 4000) {
+      airCause = "A szén-monoxid (CO) szint emelkedése általában fűtés, rossz szellőzésű helyiségek vagy forgalom miatt fordul elő.";
+    }
+  }
+
+  // --- RÖVID ÉRTÉKELÉS ÉS JAVASLAT ---
+  let msg = "";
+  if (terheles === 0) {
+    msg = `<span style="color:#21d687"><b>Biometeo-terhelés:</b> <b>alacsony</b> – időjárás szempontjából a szervezetre nézve kedvező nap.</span>`;
+  } else if (terheles === 1) {
+    let riskDetails = risks.map(risk =>
+      `<span style="cursor:help;" title="${biometeoDetailedInfo[risk] || ''}">ℹ️</span> <b>${risk}</b>`
+    ).join(", ");
+    msg = `<span style="color:#dbb52d"><b>Biometeo-terhelés:</b> <b>közepes</b> – fő kockázat: ${riskDetails}.<br>
+      A biometeo-terhelés tünetei lehetnek: fejfájás, enyhe migrén, ingerlékenység, fáradtság.</span>`;
+    if (airCause) {
+      msg += `<br><span style="color:#dbb52d"><b>Miért?</b> ${airCause}</span>`;
+      msg += `<br><span style="color:#dbb52d">A biometeo-terhelés várhatóan a levegőminőség javulásáig fennáll.</span>`;
+    }
+  } else {
+    let riskDetails = risks.map(risk =>
+      `<span style="cursor:help;" title="${biometeoDetailedInfo[risk] || ''}">ℹ️</span> <b>${risk}</b>`
+    ).join(", ");
+    msg = `<span style="color:#e6664c;font-weight:bold"><b>Biometeo-terhelés:</b> <b>magas</b> – veszélyes kombináció (${riskDetails}).<br>
+      <b>Gyakori tünetek:</b> erős fejfájás, migrén, alvászavar, szívpanaszok, izom- és ízületi fájdalom, fáradékonyság, koncentrációzavar.</span>`;
+    if (airCause) {
+      msg += `<br><span style="color:#e6664c"><b>Miért?</b> ${airCause}</span>`;
+    }
+  }
+  return msg;
+}
+
+
+// --- BIOMETEOROLÓGIAI TERHELÉS ELŐREJELZÉS (8 órára előre) ---
+function getBioMeteoForecast(weather, atm, air) {
+  // 8 órás előrejelzés – minden órára végigmegyünk
+  let changes = [];
+  if (!weather.hourly || !weather.hourly.time) return "";
+
+  let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+  if (nowIdx < 0) nowIdx = 0;
+
+  let lastTerheles = null, tartam = 0, lastStart = nowIdx;
+  for (let i = nowIdx; i < Math.min(weather.hourly.time.length, nowIdx+8); i++) {
+    // "Virtuális" atm és air érték, mert csak az aktuális van eltárolva, de lehet extrapolálni
+    let humidity = weather.hourly.relative_humidity_2m?.[i] ?? atm?.humidity ?? 0;
+    let wind = weather.hourly.windspeed_10m?.[i] ?? atm?.wind ?? 0;
+    let uv = weather.hourly.uv_index?.[i] ?? 0;
+
+    let pol = air && air.components; // Jelenleg csak aktuális légszennyezésed van, ez nem lesz óránkénti, ezt csak mosti értékkel lehet mutatni!
+    let biom = calcBiometeoLevel(weather, atm, air, i);
+let terheles = biom.level;
+let reasons = biom.reasons;
+
+    // légnyomás csak a front miatt van – azt az előző panel már kiírja!
+
+    // Mentjük a biometeo "állapotváltásokat"
+    if (lastTerheles === null) lastTerheles = terheles;
+    if (terheles !== lastTerheles || i === Math.min(weather.hourly.time.length, nowIdx+8)-1) {
+      // Vége egy periódusnak, jegyezd fel
+      let start = new Date(weather.hourly.time[lastStart]);
+      let end = new Date(weather.hourly.time[i]);
+      let diffH = Math.floor((end - start)/3600000);
+      let diffM = Math.round(((end - start)%3600000)/60000);
+      let level = ["alacsony","közepes","magas"][Math.min(lastTerheles,2)];
+      changes.push({
+        start: start,
+        end: end,
+        level: level,
+        tartam: (diffH>0?diffH+" óra ":"") + (diffM>0?diffM+" perc":"")
+      });
+      lastStart = i;
+      lastTerheles = terheles;
+    }
+  }
+
+  // Kiírás, csak ha nem végig egyforma!
+  if (changes.length > 1) {
+    let txt = `<span style="font-size:.98em;color:#47d4c5"><b>Biometeo-terhelés várható alakulása:</b></span><br>`;
+    changes.forEach(ch => {
+      txt += `<span style="font-weight:600;color:${ch.level==="magas"?"#e6664c":ch.level==="közepes"?"#dbb52d":"#21d687"}">
+        ${ch.level.charAt(0).toUpperCase()+ch.level.slice(1)} biometeo-terhelés
+      </span> <span style="color:#888">(${ch.tartam}, ${ch.start.getHours()}:00-tól)</span><br>`;
+    });
+    return txt;
+  }
+  return "";
+}
+
+
+// --- Útinform.hu RSS ---
+async function getUtinform(cityName = "") {
+  try {
+    const proxy = "https://api.allorigins.win/get?url=";
+    const url = "https://www.utinform.hu/rss/utinformhirek.rss";
+    const res = await fetch(proxy + encodeURIComponent(url));
+    const data = await res.json();
+    const parser = new window.DOMParser();
+    const xml = parser.parseFromString(data.contents, "text/xml");
+    const items = xml.querySelectorAll("item");
+    let msgList = [];
+    items.forEach(item => {
+      const title = item.querySelector("title")?.textContent || "";
+      const desc = item.querySelector("description")?.textContent || "";
+      msgList.push({title, desc});
+    });
+
+    // Közvetlen környezet (város)
+    let cityHits = cityName
+      ? msgList.filter(x => x.title.includes(cityName) || x.desc.includes(cityName))
+      : [];
+    // 60km körzet = megyenév
+    let megyek = ["Fejér","Pest","Komárom","Veszprém","Tolna","Somogy","Budapest"];
+    let countyHits = [];
+    for (let county of megyek) {
+      countyHits.push(...msgList.filter(x => x.title.includes(county) || x.desc.includes(county)));
+    }
+    return {city: cityHits, county: countyHits, all: msgList.slice(0, 2)};
+  } catch (e) {
+    return {city: [], county: [], all: []};
+  }
+}
+
+
+
+const OPENWEATHER_API_KEY = "6a8514078d38de2a2c4e4e1642fede5c";
+const poiTypes = [
+  {icon:"🚌", key:"bus", val:"yes", label:"Buszmegálló"},
+  {icon:"🚋", key:"tram", val:"yes", label:"Villamosmegálló"},
+  {icon:"🚇", key:"subway", val:"yes", label:"Metróállomás"},
+  {icon:"🚉", key:"train", val:"yes", label:"Vasútállomás"},
+  {icon:"🚏", key:"public_transport", val:"platform", label:"Közösségi megálló"},
+  {icon:"🛒", key:"shop", val:"supermarket", label:"Élelmiszer"},
+  {icon:"🏪", key:"shop", val:"electronics", label:"Műszaki"},
+  {icon:"☕", key:"amenity", val:"cafe", label:"Kávézó"},
+  {icon:"⚽", key:"leisure", val:"pitch", label:"Sport"},
+  {icon:"⛽", key:"amenity", val:"fuel", label:"Üzemanyag"},
+  {icon:"🅿️", key:"amenity", val:"parking", label:"Parkoló"},
+  {icon:"🔋", key:"amenity", val:"charging_station", label:"Töltő"},
+];
+
+const demoPollen = [
+  { city: "Budapest", ragweed: "magas", grass: "közepes", birch: "alacsony" },
+  { city: "Székesfehérvár", ragweed: "közepes", grass: "alacsony", birch: "nincs" },
+  { city: "Debrecen", ragweed: "alacsony", grass: "alacsony", birch: "alacsony" },
+  { city: "Miskolc", ragweed: "közepes", grass: "közepes", birch: "alacsony" }
+];
+function getDemoPollen(cityName) {
+  const found = demoPollen.find(x => cityName && cityName.includes(x.city));
+  return found || demoPollen[0];
+}
+function completeChallenge() {
+  let count = Number(localStorage.getItem("eco_challenge") || 0) + 1;
+  localStorage.setItem("eco_challenge", count);
+  document.getElementById('challenge-status').textContent = count + " teljesítés";
+}
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById('challenge-status').textContent =
+    (localStorage.getItem("eco_challenge") || 0) + " teljesítés";
+});
+function getPosition() {
+// Székesfehérvár: 47.1860, 18.4221
+//  return Promise.resolve({ latitude: 47.1860, longitude: 18.4221 });
+// }
+    return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) reject("Nincs geolokáció!");
+    navigator.geolocation.getCurrentPosition(
+    pos => resolve(pos.coords),
+    err => reject(err)
+  );
+  });
+ }
+async function getWeather(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=uv_index,visibility,relative_humidity_2m,windspeed_10m,precipitation_probability,precipitation,snowfall,weathercode,temperature_2m,pressure_msl,cloudcover&forecast_days=8&timezone=Europe/Budapest`;
+
+
+  const res = await fetch(url);
+  if (!res.ok) throw "Nem sikerült lekérni az időjárást!";
+  return await res.json();
+}
+async function getAirQuality(lat, lon) {
+  const url = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (!data.list || !data.list.length) return null;
+  return data.list[0];
+}
+async function getCityName(lat, lon) {
+  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=hu`;
+  const res = await fetch(url);
+  if (!res.ok) return "";
+  const data = await res.json();
+  let name = data.address.village || data.address.town || data.address.city || data.address.hamlet || data.display_name || "";
+  name = name.split(",")[0].trim(); // csak a fő városnév, pl. "Székesfehérvár"
+  return name;
+}
+
+async function getWeatherWarning(cityName) {
+  try {
+    const url = "https://api.met.hu/idojaras/veszelyjelzes/megye.json";
+    const res = await fetch(url);
+    const data = await res.json();
+    const countyNames = ["Bács-Kiskun","Baranya","Békés","Borsod-Abaúj-Zemplén","Csongrád-Csanád","Fejér","Győr-Moson-Sopron","Hajdú-Bihar","Heves","Jász-Nagykun-Szolnok","Komárom-Esztergom","Nógrád","Pest","Somogy","Szabolcs-Szatmár-Bereg","Tolna","Vas","Veszprém","Zala","Budapest"];
+    let county = "";
+    for (const name of countyNames) {
+      if (cityName && cityName.includes(name)) { county = name; break; }
+    }
+    if (!county || !data.megye) return { warnings: [], county: "" };
+    const c = data.megye.find(x => x.nev === county);
+    if (!c || !c.fok || !c.fok.length) return { warnings: [], county };
+    let warnings = c.fok.filter(x => x.szint > 0);
+    return { warnings, county };
+  } catch (e) { return { warnings: [], county: "" }; }
+}
+const szintTeendo = {
+  1: "Figyelmeztetés: kövesd az OMSZ tanácsait.",
+  2: "Narancs – Fokozott veszély: ne tartózkodj szabadban!",
+  3: "Piros – Extrém veszély: csak életvédelmi okból menj ki, védj mindent, amit tudsz!",
+};
+function warningIconAndText(jelzes) {
+  if (!jelzes) return {icon:"",text:""};
+  let txt = jelzes.toLowerCase();
+  if (txt.includes("zivatar")) return {icon:"🌩️", text:"Zivatar"};
+  if (txt.includes("hőség")) return {icon:"☀️", text:"Hőség"};
+  if (txt.includes("szél")) return {icon:"💨", text:"Szél"};
+  if (txt.includes("jégeső")) return {icon:"🧊", text:"Jégeső"};
+  if (txt.includes("hó")) return {icon:"🌨️", text:"Hó"};
+  if (txt.includes("köd")) return {icon:"🌫️", text:"Köd"};
+  if (txt.includes("eső")) return {icon:"🌧️", text:"Eső"};
+  return {icon:"⚠️", text:jelzes};
+}
+function warningLevelClass(szint) {
+  if (szint == 3) return "eco-card warn-red";
+  if (szint == 2) return "eco-card warn-orange";
+  if (szint == 1) return "eco-card warn-yellow";
+  return "eco-card warn-none";
+}
+function formatOszTime(t) {
+  if (!t) return "";
+  let d = t.split("T");
+  if (!d[0] || !d[1]) return "";
+  let dm = d[0].slice(5).replace("-",".") + ". " + d[1].slice(0,5);
+  return dm;
+}
+async function fetchPOI(lat, lon) {
+  const rad = 900;
+  let parts = poiTypes.map(t => `node["${t.key}"="${t.val}"](around:${rad},${lat},${lon});`).join("");
+  const query = `[out:json];(${parts});out body;`;
+  try {
+    const res = await fetch("https://overpass-api.de/api/interpreter", {method:"POST",body:query});
+    const data = await res.json();
+    return data.elements || [];
+  } catch(e) {
+    return [
+      {lat:lat+0.0013,lon:lon-0.0017,tags:{shop:"supermarket"},id:1},
+      {lat:lat-0.0009,lon:lon+0.0022,tags:{amenity:"cafe"},id:2},
+      {lat:lat+0.0007,lon:lon+0.001,tags:{amenity:"charging_station"},id:3},
+      {lat:lat-0.0005,lon:lon-0.0006,tags:{public_transport:"platform"},id:4}
+    ];
+  }
+}
+
+// === Kiegészítő infopanelek ===
+function updateSunTimesPanel(lat, lon) {
+  // Napkelte/nyugta ugyanúgy
+  const sunUrl = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=today&formatted=0`;
+
+  fetch(sunUrl).then(res => res.json()).then(sunData => {
+    const sunrise = new Date(sunData.results.sunrise).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+    const sunset = new Date(sunData.results.sunset).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+
+    // --- HOLD FÁZIS (helyi JS számítással, API nélkül) ---
+    // Algoritmus forrás: https://www.subsystems.us/uploads/9/8/9/4/98948044/moonphase.pdf
+    function getMoonPhase(date) {
+      var year = date.getFullYear();
+      var month = date.getMonth() + 1; // 1-12
+      var day = date.getDate();
+
+      if (month < 3) { year--; month += 12; }
+      ++month;
+
+      var c = 365.25 * year;
+      var e = 30.6 * month;
+      var jd = c + e + day - 694039.09; // jd is total days elapsed
+      jd /= 29.5305882; // divide by the moon cycle
+      var b = parseInt(jd); // int(jd) -> b, take integer part of jd
+      jd -= b; // subtract integer part to leave fractional part of original jd
+      var phase = Math.round(jd * 8); // scale fraction from 0-8 and round
+
+      if (phase >= 8 ) phase = 0;
+      return phase;
+    }
+
+    // Fázis nevek és ikonok
+    const phases = [
+      { name: "Újhold", icon: "🌑" },
+      { name: "Növő holdsarló", icon: "🌒" },
+      { name: "Első negyed", icon: "🌓" },
+      { name: "Növő hold", icon: "🌔" },
+      { name: "Telihold", icon: "🌕" },
+      { name: "Fogyó hold", icon: "🌖" },
+      { name: "Utolsó negyed", icon: "🌗" },
+      { name: "Fogyó holdsarló", icon: "🌘" }
+    ];
+    let phaseIdx = getMoonPhase(new Date());
+    let moon = phases[phaseIdx];
+
+    document.getElementById('sun-times-panel').innerHTML =
+      `🌅 Napkelte: <b>${sunrise}</b> &nbsp;|&nbsp; 🏙️ Napnyugta: <b>${sunset}</b> &nbsp;|&nbsp; ${moon.icon} Holdfázis: <b>${moon.name}</b>`;
+  });
+}
+
+
+
+function updatePressurePanel(weather) {
+  let p = "";
+  if (weather.hourly && weather.hourly.time && weather.hourly.pressure_msl) {
+    var idxNow = weather.hourly.time.findIndex(x => x.startsWith(weather.current_weather.time.slice(0,13)));
+    p = weather.hourly.pressure_msl[idxNow] || weather.current_weather.pressure_msl;
+  } else if (weather.current_weather && typeof weather.current_weather.pressure_msl === "number") {
+    p = weather.current_weather.pressure_msl;
+  }
+  let txt = "";
+  if (p) {
+    txt = `⏳ Légnyomás: <b>${Math.round(p)} hPa</b>`;
+    if (p < 1003) txt += " – 🌀 Hidegfront (frontérzékenyek figyelem!)";
+    else if (p > 1020) txt += " – 🌞 Melegfront (álmosság, fáradtság jelentkezhet)";
+    else txt += " – Átlagos légnyomás";
+  }
+
+  // -- Pontos idő kalkuláció (csak ha lesz jelentős változás)
+  let vanValtozas = false;
+  let targetIdx = -1;
+  if (weather.hourly && weather.hourly.time && weather.hourly.pressure_msl) {
+    var idxNow = weather.hourly.time.findIndex(x => x.startsWith(weather.current_weather.time.slice(0,13)));
+    let aktFront = (p < 1003 || p > 1020);
+    for (let i = idxNow+1; i < weather.hourly.pressure_msl.length; i++) {
+      let pres = weather.hourly.pressure_msl[i];
+      // Ha frontból átlép átlagosba, vagy átlagosból frontba
+      if (aktFront && pres >= 1003 && pres <= 1020) { vanValtozas = true; targetIdx = i; break; }
+      if (!aktFront && (pres < 1003 || pres > 1020)) { vanValtozas = true; targetIdx = i; break; }
+    }
+  }
+  if (vanValtozas && targetIdx > 0) {
+    let nowTime = new Date(weather.hourly.time[idxNow]);
+    let targetTime = new Date(weather.hourly.time[targetIdx]);
+    let diffMs = targetTime - nowTime;
+    let diffH = Math.floor(diffMs / 3600000);
+    let diffM = Math.round((diffMs % 3600000) / 60000);
+    txt += `<br><span style='font-size:.97em'>${diffH} óra${diffM>0?` ${diffM} perc`:''} múlva: <b>${Math.round(weather.hourly.pressure_msl[targetIdx])} hPa</b> `;
+    if (weather.hourly.pressure_msl[targetIdx] < 1003) txt += "– 🌀 Hidegfront várható";
+    else if (weather.hourly.pressure_msl[targetIdx] > 1020) txt += "– 🌞 Melegfront várható";
+    else txt += "– Átlagos légnyomás <span style='color:#888;'>(AI kalkulált)</span>";
+    txt += "</span>";
+  }
+  // Ha nincs változás, nem írunk ki semmit!
+
+  document.getElementById('pressure-panel').innerHTML = txt;
+}
+
+
+function updatePollenHourPanel(weather) {
+  // "Pollen-óra": fiktív logika, amikor 24 fok felett, száraz időben és napos UV>4, pollen rosszabb 12–16h
+  let txt = "";
+  let now = new Date(weather.current_weather.time);
+  let hour = now.getHours();
+  let uv = null, temp = weather.current_weather.temperature;
+  if (weather.hourly && weather.hourly.uv_index && weather.hourly.time) {
+    let idx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+    if(idx>=0) uv = weather.hourly.uv_index[idx];
+  }
+  if (temp > 22 && uv !== null && uv > 4 && hour >= 12 && hour <= 16) {
+    txt = "🌸 <b>Pollen-csúcsidőszak:</b> Most különösen magas! (12–16 óra, UV erős, száraz meleg idő)";
+  } else if (uv !== null && uv > 4) {
+    txt = "🌸 <b>Közepes pollenhelyzet:</b> Kerüld a hosszabb szabadtéri tartózkodást, főleg déltől 16h-ig!";
+  } else {
+    txt = "🌸 <b>Jelenleg nincs kiugró pollen-csúcsidőszak.</b>";
+  }
+  document.getElementById('pollen-hour-panel').innerHTML = txt;
+}
+function updateJamPanel(trafficObj) {
+  let html = "";
+  if (trafficObj.local) html += "🚗 <b>Helyi forgalmi helyzet:</b> " + trafficObj.local;
+  if (trafficObj.regional) html += "<br>🛣️ <b>60km körzet eseményei:</b> " + trafficObj.regional;
+  document.getElementById('jam-info-panel').innerHTML = html;
+}
+
+
+
+// === POI és MAP ===
+let map, marker, circle, poiMarkers = [];
+function initMap(lat, lon) {
+  if (!map) {
+    map = L.map('leafletmap').setView([lat, lon], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    marker = L.marker([lat, lon], {icon: L.icon({
+      iconUrl: 'https://cdn.jsdelivr.net/gh/pointhi/leaflet-color-markers@master/img/marker-icon-2x-green.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+    })}).addTo(map).bindPopup("Itt vagy!").openPopup();
+    circle = L.circle([lat, lon], {radius: 100, color: "#50ce90", fillOpacity:.12}).addTo(map);
+  } else {
+    marker.setLatLng([lat, lon]);
+    circle.setLatLng([lat, lon]);
+    map.setView([lat, lon], map.getZoom());
+  }
+  updatePOI(lat, lon);
+}
+
+function normalizeName(str) {
+  return (str||"")
+    .trim()
+    .toLowerCase()
+    .replace(/[áäàâ]/g,'a').replace(/[éëèê]/g,'e')
+    .replace(/[íïìî]/g,'i').replace(/[óöőòô]/g,'o')
+    .replace(/[úüűùû]/g,'u')
+    .replace(/[ç]/g,'c').replace(/[ß]/g,'ss')
+    .replace(/[^a-z0-9]/g,''); // minden nem-betű/szám eltávolít
+}
+
+
+async function updatePOI(lat, lon) {
+  poiMarkers.forEach(p => map.removeLayer(p));
+  poiMarkers = [];
+  const pois = await fetchPOI(lat, lon);
+  pois.forEach(node => {
+    let icon = "❓", typeLabel = "-";
+    for (let t of poiTypes) if (node.tags[t.key] === t.val) { icon = t.icon; typeLabel = t.label; break; }
+
+    // --- Budapesti buszmegállók: statikus menetrendi popup ---
+    if (typeLabel === "Buszmegálló" && node.tags.name) {
+  let m = L.marker([node.lat, node.lon], {
+    icon: L.divIcon({className:"", html:`<span style="font-size:1.5em">🚏</span>`})
+  }).addTo(map)
+    .on('click', function() {
+      m.bindPopup(
+        `<b>${node.tags.name}</b><br><span style="font-size:1em;">${typeLabel}</span>`
+      ).openPopup();
+    });
+  poiMarkers.push(m);
+}
+
+
+
+    // --- Egyéb POI ---
+    else {
+      let m = L.marker([node.lat, node.lon], {
+        icon: L.divIcon({className:"",html:`<span style="font-size:1.5em">${icon}</span>`})
+      }).addTo(map)
+        .bindPopup(
+          `${icon} <b>${node.tags.name||typeLabel}</b><br><span style="font-size:1em;">${typeLabel}</span>`
+        );
+      poiMarkers.push(m);
+    }
+  });
+}
+
+function liveFollowPosition() {
+ // if (navigator.geolocation) {
+  //  navigator.geolocation.watchPosition(pos => {
+   //   const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    //  initMap(lat, lon);
+   // });
+  //}
+}
+document.getElementById("btnstreet").onclick = function() {
+  if (marker && marker.getLatLng) {
+    let lat = marker.getLatLng().lat, lon = marker.getLatLng().lng;
+    window.open(`https://maps.google.com/?cbll=${lat},${lon}&layer=c`, "_blank");
+  }
+};
+document.getElementById("btn2d").onclick = function() {
+  if (marker && marker.getLatLng) {
+    let lat = marker.getLatLng().lat, lon = marker.getLatLng().lng;
+    initMap(lat, lon);
+  }
+};
+// --- Sötét mód ---
+function setDarkMode(on) {
+  document.body.classList.toggle('dark', on);
+  localStorage.setItem("eco_darkmode", on ? "1":"0");
+}
+function autoDarkMode() {
+  const now = new Date(), sunset = 20;
+  setDarkMode(now.getHours() >= sunset || localStorage.getItem("eco_darkmode")==="1");
+}
+document.getElementById('darkmodeBtn').onclick = ()=>setDarkMode(!document.body.classList.contains('dark'));
+setTimeout(autoDarkMode,300);
+// --- MODAL/okos figyelmeztetés: pollen, UV, hőség!
+function showAlertModal(title, msg) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalMsg').innerHTML = msg;
+  document.getElementById('alertModal').style.display = "flex";
+}
+
+function isWetCode(code){
+  code = Number(code);
+  return [51,53,55,56,57,61,63,65,66,67,71,73,75,77,80,81,82,85,86,95,96,99].includes(code);
+}
+function isSnowCode(code){ return [71,73,75,77,85,86].includes(Number(code)); }
+function isThunderCode(code){ return [95,96,99].includes(Number(code)); }
+function sameYMD(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+
+function summarizeDayParts(weather, baseDate=new Date()){
+  const h = weather?.hourly;
+  if(!h?.time || !h?.weathercode) return [];
+
+  const slots = [
+    { label:"éjjel",    start:0,  end:6  },
+    { label:"délelőtt", start:6,  end:12 },
+    { label:"délután",  start:12, end:18 },
+    { label:"este",     start:18, end:24 }
+  ];
+
+  return slots.map(slot => {
+    let idxs = [];
+    for (let i=0;i<h.time.length;i++){
+      const d = new Date(h.time[i]);
+      if (sameYMD(d, baseDate) && d.getHours() >= slot.start && d.getHours() < slot.end) idxs.push(i);
+    }
+    if (!idxs.length) return {label:slot.label, status:"nincs adat", icon:"⋯", mm:0};
+
+    let wet=false, snow=false, thunder=false, mmSum=0;
+    for (const k of idxs){
+      const wc = Number(h.weathercode[k]);
+      wet = wet || isWetCode(wc);
+      snow = snow || isSnowCode(wc);
+      thunder = thunder || isThunderCode(wc);
+      mmSum += Number(h.precipitation?.[k] ?? 0);
+    }
+    let status, icon;
+    const anyRain = wet || mmSum > 0.1;
+    if (thunder) { status = "zivatar"; icon = "⛈️"; }
+    else if (snow) { status = "havazás"; icon = "🌨️"; }
+    else if (anyRain) { status = "eső"; icon = "🌧️"; }
+    else {
+  // Átlagos felhőzet a napszak óráiból (védetten)
+  const hasCloud = Array.isArray(h.cloudcover);
+  const cloudVals = hasCloud ? idxs
+    .map(k => Number(h.cloudcover?.[k]))
+    .filter(v => Number.isFinite(v)) : [];
+
+  let avgCloud = 0;
+  if (cloudVals.length > 0) {
+    avgCloud = Math.round(cloudVals.reduce((a,b)=>a+b,0) / cloudVals.length);
+  }
+
+  if (cloudVals.length === 0) { // nincs adat → biztonságos default
+    status = "derült"; icon = "☀️";
+  } else if (avgCloud <= 15)      { status = "derült";         icon = "☀️";  }
+    else if (avgCloud <= 50) { status = "gyengén felhős"; icon = "🌤️"; }
+    else if (avgCloud <= 85) { status = "erősen felhős";  icon = "⛅";  }
+    else                     { status = "borult";         icon = "☁️";  }
+}
+
+
+    return { label:slot.label, status, icon, mm:Math.round(mmSum*10)/10 };
+  });
+}
+
+
+// --- 7 napos időjárás panel ---
+function renderForecast(weather) {
+  const w = weather;
+  let res = '';
+  for (let d = 0; d < 4; d++) {
+    if (!w.hourly.time[d * 24]) break;
+    // Nap neve
+    let date = w.hourly.time[d * 24] ? new Date(w.hourly.time[d * 24]) : null;
+    let day = date ? date.toLocaleDateString('hu-HU', { weekday: 'short' }) : "-";
+    // Min/max hőmérséklet (teljes napra)
+    let minTemp = 99, maxTemp = -99;
+    for (let h = d * 24; h < (d + 1) * 24; h++) {
+      if (w.hourly.temperature_2m && w.hourly.temperature_2m[h] !== undefined) {
+        if (w.hourly.temperature_2m[h] < minTemp) minTemp = w.hourly.temperature_2m[h];
+        if (w.hourly.temperature_2m[h] > maxTemp) maxTemp = w.hourly.temperature_2m[h];
+      }
+    }
+    let minT = minTemp !== 99 ? Math.round(minTemp) + "°C" : "-";
+    let maxT = maxTemp !== -99 ? Math.round(maxTemp) + "°C" : "-";
+    // Napszakos összegzés: summarizeDayParts
+    const parts = summarizeDayParts(w, date);
+    res += `<div class="forecast-day" style="min-width:85px;">
+      <div class="day">${day}</div>
+      <div class="icon" style="display:flex;flex-direction:column;align-items:center;font-size:1.09em;">
+        <span>🌃 ${parts[0].icon} <span style="font-size:.93em;color:#5fd0e7">${parts[0].status}</span></span>
+        <span>🌅 ${parts[1].icon} <span style="font-size:.93em;color:#5fd0e7">${parts[1].status}</span></span>
+        <span>🌞 ${parts[2].icon} <span style="font-size:.93em;color:#5fd0e7">${parts[2].status}</span></span>
+        <span>🌆 ${parts[3].icon} <span style="font-size:.93em;color:#5fd0e7">${parts[3].status}</span></span>
+      </div>
+      <div class="temp"><span style="color:#19e58f">${minT}</span> / <b>${maxT}</b></div>
+    </div>`;
+  }
+  document.getElementById('forecast-panel').innerHTML = res;
+}
+
+
+function getWeatherText(code, cloud) {
+  if ([95,96,99].includes(code))      return "zivatar";
+  if ([67,77].includes(code))         return "jégeső";
+  if ([71,73,75,85,86].includes(code))return "havazás";
+  if ([61,63,65,80,81,82].includes(code)) return "eső";
+  if (cloud <= 15) return "derült";
+  if (cloud <= 50) return "gyengén felhős";
+  if (cloud <= 85) return "erősen felhős";
+  return "borult";
+}
+
+// --- Egységes következő csapadék kereső minden panelhez ---
+function findNextRainMinutes(weather, threshold = 0.1) {
+  if (!weather.hourly || !weather.hourly.precipitation || !weather.hourly.time) return null;
+  let now = new Date(weather.current_weather.time);
+  let nowIdx = weather.hourly.time.findIndex(x => x.startsWith(weather.current_weather.time.slice(0,13)));
+  for (let i = nowIdx + 1; i < weather.hourly.time.length; i++) {
+    if ((weather.hourly.precipitation[i] || 0) > threshold) {
+      let t = new Date(weather.hourly.time[i]);
+      let perc = Math.round((t - now) / 60000);
+      return { minutes: perc, hour: t.getHours(), min: ('0'+t.getMinutes()).slice(-2) };
+    }
+  }
+  return null;
+}
+
+// --- AI összegzés, “Indulj vagy várj!”, öltözék, csapadék, minden ---
+function generateAISuggestion(weather, air, atm, trafficMsg) {
+  let msg = "";
+
+// --- Napi összefoglaló készítése (este 20-tól már holnap!) ---
+let now = new Date();
+let forecastDay = new Date(now);
+if (now.getHours() >= 20) {
+  // Este 20:00-tól másnapra váltunk
+  forecastDay.setDate(now.getDate() + 1);
+}
+const targetDay = forecastDay.toISOString().slice(0,10);
+
+let minT = null, maxT = null, rainTotal = 0;
+let hasRain = false, hasShower = false, hasThunder = false, hasSnow = false;
+
+// A weather.hourly.time mezőben keresd a targetDay óráit:
+for (let i = 0; i < weather.hourly.time.length; i++) {
+  if (weather.hourly.time[i].startsWith(targetDay)) {
+    const t = weather.hourly.temperature_2m[i];
+    if (minT === null || t < minT) minT = t;
+    if (maxT === null || t > maxT) maxT = t;
+
+    // Csapadékkód figyelése
+    const code = weather.hourly.weathercode[i];
+    if ([61,63,65,80,81,82].includes(code)) hasShower = true;
+    if ([95,96,99].includes(code)) hasThunder = true;
+    if ([71,73,75,77,85,86].includes(code)) hasSnow = true;
+    if ([51,53,55,61,63,65,80,81,82,95,96,99].includes(code)) hasRain = true;
+
+    // Csapadék mennyiség
+    rainTotal += weather.hourly.precipitation[i] || 0;
+  }
+}
+
+// Délelőtt/délután bontás (reggel 6-tól 12-ig és 12-től 18-ig)
+let minTde = null, maxTde = null, minTdu = null, maxTdu = null;
+for (let i = 0; i < weather.hourly.time.length; i++) {
+  if (weather.hourly.time[i].startsWith(targetDay)) {
+    const hour = parseInt(weather.hourly.time[i].slice(11,13));
+    const t = weather.hourly.temperature_2m[i];
+    if (hour >= 6 && hour < 12) {
+      if (minTde === null || t < minTde) minTde = t;
+      if (maxTde === null || t > maxTde) maxTde = t;
+    }
+    if (hour >= 12 && hour < 18) {
+      if (minTdu === null || t < minTdu) minTdu = t;
+      if (maxTdu === null || t > maxTdu) maxTdu = t;
+    }
+  }
+}
+
+// Időjárás összefoglaló szöveg összeállítása
+let summary = `🌤️ <b>Napi összefoglaló${now.getHours()>=20 ? " (holnap)":""}:</b> `;
+if (minT !== null && maxT !== null)
+  summary += `Min: <b>${Math.round(minT)}°C</b>, Max: <b>${Math.round(maxT)}°C</b>`;
+if (minTde !== null && maxTde !== null)
+  summary += ` | Délelőtt: <b>${Math.round(minTde)}–${Math.round(maxTde)}°C</b>`;
+if (minTdu !== null && maxTdu !== null)
+  summary += ` | Délután: <b>${Math.round(minTdu)}–${Math.round(maxTdu)}°C</b>`;
+
+let jel = [];
+if (hasThunder) jel.push("⛈️ zivatar");
+if (hasShower) jel.push("🌦️ zápor");
+else if (hasRain) jel.push("🌧️ eső");
+if (hasSnow) jel.push("❄️ havazás");
+
+if (jel.length > 0) summary += `<br>Jellegzetes időjárás: <b>${jel.join(", ")}</b>`;
+if (rainTotal > 0.1) summary += `<br>Várható csapadék: <b>${rainTotal.toFixed(1)} mm</b>`;
+else summary += `<br>Csapadék nem várható.`;
+
+msg += summary + "<br>";
+  
+
+  // --- Egységesített: következő csapadék érkezése minden üzenetnél! ---
+  const rain = findNextRainMinutes(weather);
+let rainStr = "";
+if (rain) {
+  if (rain.minutes < 60) {
+    rainStr = `${rain.minutes} perc múlva`;
+  } else {
+    let hour = Math.floor(rain.minutes / 60);
+    let min = rain.minutes % 60;
+    rainStr = (hour > 0 ? `${hour} óra` : "") + (min > 0 ? ` ${min} perc` : "") + " múlva";
+    rainStr = rainStr.trim();
+  }
+  msg += `<br><b>Közlekedési tipp:</b> Most ideális elindulni, de eső <b>${rainStr}</b> (${rain.hour}:${rain.min}-tól) várható!`;
+} else {
+  msg += `<br><b>Közlekedési tipp:</b> Most ideális elindulni, a következő órában nem várható eső!`;
+}
+
+
+
+  // --- Egyéb időjárás, mostani állapot ---
+  if (weather.current_weather && weather.current_weather.precipitation > 0) {
+    msg += "Jelenleg is csapadék van, ";
+  }
+
+  if (atm && atm.wind >= 35) msg += `<b>Viharos szél (${atm.wind} km/h)!</b> `;
+  else if (atm && atm.wind >= 18) msg += `erős szél (${atm.wind} km/h), `;
+  if (atm && atm.visibility < 7) msg += `látótávolság: ${atm.visibility} km, `;
+  if (atm && atm.humidity > 80) msg += `magas páratartalom (${atm.humidity}%). `;
+  if (air && air.components && air.components.pm2_5 < 18) {
+    msg += "Jó a levegőminőség – ideális a szabadban tölteni!";
+  } else if (air && air.components) {
+    msg += `A levegőminőség közepes/szennyezett (PM2.5: ${air.components.pm2_5} µg/m³), inkább ne fuss a szabadban.`;
+  } else {
+    msg += "Nincs elérhető adat a levegőminőségről.";
+  }
+
+  // --- Hőérzet és öltözék javaslat ---
+  if (weather && weather.current_weather && typeof weather.current_weather.temperature === 'number') {
+    const t = weather.current_weather.temperature;
+    let dress = "";
+    if (t >= 29) dress = "Könnyű nyári ruha, sapka, sok folyadék!";
+    else if (t >= 22) dress = "Rövid ujjú póló, könnyű nadrág ajánlott.";
+    else if (t >= 17) dress = "Hosszú ujjú póló, vékony pulóver.";
+    else if (t >= 12) dress = "Könnyű dzseki, réteges öltözet.";
+    else if (t >= 5) dress = "Melegebb kabát, pulóver, sál.";
+    else if (t >= -3) dress = "Téli kabát, sapka, sál, kesztyű!";
+    else dress = "Extrém hideg! Vastag, réteges téli öltözet, sapka, sál, kesztyű kötelező!";
+    msg += `<br><b>Öltözék tipp:</b> ${dress}`;
+    if (atm && atm.wind > 18) msg += " (Erős szél miatt hidegebbnek érződik!)";
+    if (atm && atm.humidity > 85 && t > 18) msg += " (Magas páratartalom miatt fülledtebbnek érződik.)";
+  }
+
+  // --- Csapadék infó ---
+  const rainSum = calcTodayRainSum(weather);
+  if (rainSum > 0) msg += `<br><b>Mai várható csapadék:</b> ${rainSum} mm`;
+
+  // --- Jégeső vagy zivatar vége (weathercode: 77, 96, 99) ---
+  let hailEndTime = null;
+  if (weather.hourly && weather.hourly.weathercode && weather.hourly.time) {
+    let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+    for (let i = nowIdx+1; i < weather.hourly.time.length; i++) {
+      if (![77,96,99].includes(weather.hourly.weathercode[i])) {
+        hailEndTime = weather.hourly.time[i];
+        break;
+      }
+    }
+  }
+  if ([77,96,99].includes(weather.current_weather.weathercode) && hailEndTime) {
+    let formattedHailEnd = formatEventTime(hailEndTime, weather.current_weather.time);
+    msg += `<br><b>Várhatóan a jégeső/zivatar vége: <span style="color:#3477af">${formattedHailEnd}</span></b>`;
+  }
+
+  // --- Havazás vége (weathercode: 71, 73, 75, 85, 86) ---
+  let snowEndTime = null;
+  if (weather.hourly && weather.hourly.weathercode && weather.hourly.time) {
+    let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+    for (let i = nowIdx+1; i < weather.hourly.time.length; i++) {
+      if (![71,73,75,85,86].includes(weather.hourly.weathercode[i])) {
+        snowEndTime = weather.hourly.time[i];
+        break;
+      }
+    }
+  }
+  if ([71,73,75,85,86].includes(weather.current_weather.weathercode) && snowEndTime) {
+    let formattedSnowEnd = formatEventTime(snowEndTime, weather.current_weather.time);
+    msg += `<br><b>Várhatóan a havazás vége: <span style="color:#3477af">${formattedSnowEnd}</span></b>`;
+  }
+
+  // --- Viharos szél vége ---
+  let stormEndTime = null;
+  if (weather.hourly && weather.hourly.windspeed_10m && weather.hourly.time) {
+    let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+    for (let i = nowIdx+1; i < weather.hourly.time.length; i++) {
+      if (weather.hourly.windspeed_10m[i] < 40) {
+        stormEndTime = weather.hourly.time[i];
+        break;
+      }
+    }
+  }
+  if (atm && atm.wind >= 40 && stormEndTime) {
+    let formattedStormEnd = formatEventTime(stormEndTime, weather.current_weather.time);
+    msg += `<br><b>Várhatóan a viharos szél vége: <span style="color:#d25d15">${formattedStormEnd}</span></b>`;
+  }
+
+  
+  // --- Forgalmi infó, ha van ---
+  if (trafficMsg) msg += `<br>🚦 <b>${trafficMsg}</b>`;
+
+  return msg;
+}
+
+// --- Csapadék összege és becsült végéig tartó idő ---
+function calcTodayRainSum(weather) {
+  if (!weather.hourly || !weather.hourly.precipitation || !weather.hourly.time) return "-";
+  let sum = 0;
+  let now = new Date();
+  let localDate = now.getFullYear() + '-' +
+    ('0'+(now.getMonth()+1)).slice(-2) + '-' +
+    ('0'+now.getDate()).slice(-2);
+  for (let i = 0; i < weather.hourly.time.length; i++) {
+    // Az időzóna miatt lehet, hogy a time UTC, magyar időhöz +2h kell!
+    let d = new Date(weather.hourly.time[i]);
+    let localStr = d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+    if (localStr === localDate) {
+      sum += weather.hourly.precipitation[i] || 0;
+    }
+  }
+  return sum.toFixed(1);
+}
+
+function estimateRainEnd(weather) {
+  if (!weather.hourly || !weather.hourly.precipitation || !weather.hourly.time) return "";
+  let now = new Date(weather.current_weather.time);
+  let rainEndMin = null;
+  for (let i = 0; i < weather.hourly.time.length; i++) {
+    let t = new Date(weather.hourly.time[i]);
+    if (t < now) continue;
+    if (weather.hourly.precipitation[i] > 0) {
+      rainEndMin = Math.round((t - now) / 60000);
+    } else if (rainEndMin !== null) {
+      return rainEndMin + 60;
+    }
+  }
+  return rainEndMin ? (rainEndMin + 60) : null;
+}
+function aiIndulasiTanacs(weather, atm) {
+  if (!weather || !weather.hourly || !weather.hourly.precipitation || !weather.hourly.time || !weather.current_weather) return "";
+  let now = new Date(weather.current_weather.time);
+  let rainNow = weather.current_weather.precipitation > 0;
+  let snowNow = weather.current_weather.weathercode && [71,73,75,85,86].includes(weather.current_weather.weathercode);
+  let stormNow = atm && atm.wind >= 40;
+  
+  // --- Eső vagy havazás vagy viharos szél, UV mind tiltó tényező lehet ---
+  if (rainNow) {
+    // Mikor áll el?
+    let firstRainFreeMinute = null;
+    for (let i = 0; i < weather.hourly.time.length; i++) {
+      let t = new Date(weather.hourly.time[i]);
+      if (t < now) continue;
+      if (weather.hourly.precipitation[i] === 0) {
+        firstRainFreeMinute = Math.round((t - now) / 60000);
+        break;
+      }
+    }
+    if (firstRainFreeMinute !== null && firstRainFreeMinute < 60)
+      return `Most nem javasolt elindulni, ${firstRainFreeMinute} perc múlva várhatóan eláll az eső.`;
+    return "Most esik az eső, nézd meg az aktuális radart!";
+  }
+
+  if (snowNow) {
+    // Mikor olvad el, mikor múlik el?
+    let snowEnd = null;
+    if (weather.hourly && weather.hourly.weathercode && weather.hourly.time) {
+      let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+      for (let i = nowIdx+1; i < weather.hourly.time.length; i++) {
+        if (![71,73,75,85,86].includes(weather.hourly.weathercode[i])) {
+          snowEnd = weather.hourly.time[i];
+          break;
+        }
+      }
+    }
+    if (snowEnd) {
+      let dt = new Date(snowEnd);
+      let perc = Math.round((dt-now)/60000);
+      if (perc < 60) return `Most havazik, várhatóan ${perc} perc múlva eláll a havazás.`;
+      return "Most havazik, inkább várd meg, amíg eláll!";
+    }
+    return "Most havazik, indulás előtt ellenőrizd a hóhelyzetet!";
+  }
+
+  if (stormNow) {
+    // Mikor szelídül a szél?
+    let stormEnd = null;
+    if (weather.hourly && weather.hourly.windspeed_10m && weather.hourly.time) {
+      let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+      for (let i = nowIdx+1; i < weather.hourly.time.length; i++) {
+        if (weather.hourly.windspeed_10m[i] < 40) {
+          stormEnd = weather.hourly.time[i];
+          break;
+        }
+      }
+    }
+    if (stormEnd) {
+      let dt = new Date(stormEnd);
+      let perc = Math.round((dt-now)/60000);
+      if (perc < 60) return `Viharos szél van, ${perc} perc múlva várhatóan mérséklődik.`;
+      return "Viharos szél van, ha nem muszáj, ne indulj el most!";
+    }
+    return "Viharos szél van, fokozott óvatossággal indulj csak el!";
+  }
+
+  
+// --- Jégeső (weathercode: 77) ---
+let hailNow = weather.current_weather.weathercode === 77;
+if (hailNow) {
+  // Mikor ér véget?
+  let hailEnd = null;
+  if (weather.hourly && weather.hourly.weathercode && weather.hourly.time) {
+    let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+    for (let i = nowIdx+1; i < weather.hourly.time.length; i++) {
+      if (weather.hourly.weathercode[i] !== 77) {
+        hailEnd = weather.hourly.time[i];
+        break;
+      }
+    }
+  }
+  if (hailEnd) {
+    let dt = new Date(hailEnd);
+    let perc = Math.round((dt-now)/60000);
+    if (perc < 60) return `Jégeső van, ${perc} perc múlva várhatóan eláll.`;
+    return "Jégeső van, ha nem muszáj, most inkább ne indulj el!";
+  }
+  return "Jégeső van, kerüld a szabadtéri mozgást és védd a járművedet!";
+}
+
+// --- Köd (weathercode: 3, 45, 48) ---
+let fogNow = weather.current_weather.weathercode && [3,45,48].includes(weather.current_weather.weathercode);
+if (fogNow) {
+  // Mikor lesz vége?
+  let fogEnd = null;
+  if (weather.hourly && weather.hourly.weathercode && weather.hourly.time) {
+    let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+    for (let i = nowIdx+1; i < weather.hourly.time.length; i++) {
+      if (![3,45,48].includes(weather.hourly.weathercode[i])) {
+        fogEnd = weather.hourly.time[i];
+        break;
+      }
+    }
+  }
+  if (fogEnd) {
+    let dt = new Date(fogEnd);
+    let perc = Math.round((dt-now)/60000);
+    if (perc < 60) return `Köd van, ${perc} perc múlva oszlani kezd. Vezess nagyon óvatosan!`;
+    return "Sűrű köd van, vezess lassan és körültekintően!";
+  }
+  return "Sűrű köd van, vezess lassan és körültekintően!";
+}
+
+// --- Szitálás (weathercode: 51, 53, 55, 56, 57) ---
+let drizzleNow = weather.current_weather.weathercode && [51,53,55,56,57].includes(weather.current_weather.weathercode);
+if (drizzleNow) {
+  // Mikor ér véget?
+  let drizzleEnd = null;
+  if (weather.hourly && weather.hourly.weathercode && weather.hourly.time) {
+    let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+    for (let i = nowIdx+1; i < weather.hourly.time.length; i++) {
+      if (![51,53,55,56,57].includes(weather.hourly.weathercode[i])) {
+        drizzleEnd = weather.hourly.time[i];
+        break;
+      }
+    }
+  }
+  if (drizzleEnd) {
+    let dt = new Date(drizzleEnd);
+    let perc = Math.round((dt-now)/60000);
+    if (perc < 60) return `Szitálás van, ${perc} perc múlva eláll.`;
+    return "Szitálás van, számolj enyhe csapadékkal az úton.";
+  }
+  return "Szitálás van, számolj enyhe csapadékkal az úton.";
+}
+
+
+  // --- Ha semmi extrém, akkor adj pozitív tanácsot ---
+  // Lesz-e eső, hó, viharos szél a következő órában?
+  // --- Ha semmi extrém, akkor adj pozitív tanácsot ---
+// Lesz-e eső, hó, viharos szél a következő órában?
+let leszEse = false, leszHo = false, leszVihar = false;
+let firstRainIdx = -1, firstSnowIdx = -1, firstWindIdx = -1;
+now = new Date(weather.current_weather.time);
+let nowIdx = weather.hourly.time.findIndex(x => x.startsWith(weather.current_weather.time.slice(0, 13)));
+if (nowIdx < 0) nowIdx = 0;
+
+for (let i = nowIdx + 1; i < weather.hourly.time.length && i <= nowIdx + 3; i++) {
+  if (weather.hourly.precipitation[i] > 0 && firstRainIdx === -1) firstRainIdx = i;
+  if (weather.hourly.weathercode && [71,73,75,85,86].includes(weather.hourly.weathercode[i]) && firstSnowIdx === -1) firstSnowIdx = i;
+  if (weather.hourly.windspeed_10m && weather.hourly.windspeed_10m[i] >= 40 && firstWindIdx === -1) firstWindIdx = i;
+}
+if (firstRainIdx > -1) {
+  let rainTime = new Date(weather.hourly.time[firstRainIdx]);
+  let perc = Math.round((rainTime - now) / 60000);
+  return `Most ideális elindulni, de eső <b>${perc} perc múlva</b> (${rainTime.getHours()}:00-tól) várható!`;
+}
+if (firstSnowIdx > -1) {
+  let snowTime = new Date(weather.hourly.time[firstSnowIdx]);
+  let perc = Math.round((snowTime - now) / 60000);
+  return `Most ideális elindulni, de havazás <b>${perc} perc múlva</b> (${snowTime.getHours()}:00-tól) várható!`;
+}
+if (firstWindIdx > -1) {
+  let windTime = new Date(weather.hourly.time[firstWindIdx]);
+  let perc = Math.round((windTime - now) / 60000);
+  return `Most ideális elindulni, de viharos szél <b>${perc} perc múlva</b> (${windTime.getHours()}:00-tól) várható!`;
+}
+return "Most ideális elindulni, a következő órában nem várható eső, havazás vagy vihar!";
+
+}
+
+// --- FŐ LOGIKA, minden betöltése, infopanelek update ---
+async function loadEcoData() {
+  try {
+    const coords = await getPosition();
+  //  const coords = {latitude: 47.4979, longitude: 19.0402}; // Budapest
+    const lat = coords.latitude, lon = coords.longitude;
+    document.getElementById('city').textContent = "Betöltés…";
+    const cityName = await getCityName(lat, lon);
+    document.getElementById('city').textContent = cityName ? cityName : `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    document.getElementById('weather').textContent = "Betöltés…";
+    document.getElementById('uv-panel').textContent = "Betöltés…";
+    const weather = await getWeather(lat, lon);
+    let rainNow = false;
+let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+if (nowIdx < 0) nowIdx = 0;
+for (let i = nowIdx; i <= nowIdx + 1 && i < weather.hourly.precipitation.length; i++) {
+  if (weather.hourly.precipitation[i] > 0) rainNow = true;
+}
+document.getElementById('weather').textContent =
+  `${Math.round(weather.current_weather.temperature)}°C, ` +
+  (weather.current_weather.precipitation > 0 ? "jelenleg is esik" : (rainNow ? "eső várható" : "nincs csapadék"));
+
+
+    let uvNow = null;
+    if(weather.hourly && weather.hourly.uv_index && weather.hourly.time){
+      let idx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+      if(idx>=0) uvNow = weather.hourly.uv_index[idx];
+    }
+    document.getElementById('uv-panel').textContent = uvNow !== null ? uvNow.toFixed(1)+" (max 11)" : "Nincs adat";
+    let atmNow = {visibility:0,humidity:0,wind:0};
+    if(weather.hourly && weather.hourly.visibility && weather.hourly.time){
+      let idx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+      if(idx>=0) {
+        atmNow.visibility = Math.round((weather.hourly.visibility[idx]||0)/1000);
+        atmNow.humidity = weather.hourly.relative_humidity_2m ? Math.round(weather.hourly.relative_humidity_2m[idx]||0) : 0;
+        atmNow.wind = weather.hourly.windspeed_10m ? Math.round(weather.hourly.windspeed_10m[idx]||0) : 0;
+      }
+    }
+
+// --- Élő hőérzet panel (humidex/heat index/windchill) ---
+let temp = weather.current_weather.temperature;
+let humidity = atmNow.humidity;
+let wind = atmNow.wind;
+
+let heatIndex = temp;
+let method = "";
+
+if (temp >= 27 && humidity >= 40) {
+  heatIndex = calcHeatIndex(temp, humidity);
+  method = "heat index";
+} else if (temp > 0 && humidity > 0) {
+  heatIndex = calcHumidex(temp, humidity);
+  method = "humidex";
+}
+if (temp <= 10 && wind >= 5) {
+  heatIndex = calcWindChill(temp, wind);
+  method = "windchill";
+}
+
+let heatTxt = `Jelenlegi hőérzet: <b>${heatIndex}°C</b> <span style="color:#7b9778;font-size:.98em">(${method || "hőmérséklet"})</span>`;
+document.getElementById('heat-index-panel').innerHTML = heatTxt;
+
+
+    document.getElementById('atm-panel').innerHTML = `Látótávolság: <b>${atmNow.visibility} km</b>, Páratartalom: <b>${atmNow.humidity}%</b>, Szél: <b>${atmNow.wind} km/h</b>`;
+    document.getElementById('air-quality').textContent = "Betöltés…";
+    let airData = await getAirQuality(lat, lon);
+    if (airData && airData.components) {
+      let pm = airData.components.pm2_5;
+      let status = "Jó";
+      if (pm >= 35) status = "Szennyezett";
+      else if (pm >= 18) status = "Közepes";
+      document.getElementById('air-quality').textContent =
+        `"${status}" (PM2.5: ${pm} µg/m³)`;
+      document.getElementById('air-components').innerHTML =
+  makeAirBadge('pm10', airData.components.pm10) +
+  makeAirBadge('no2', airData.components.no2) +
+  makeAirBadge('o3', airData.components.o3) +
+  makeAirBadge('co', airData.components.co);
+
+    } else {
+      document.getElementById('air-quality').textContent =
+        "Nincs elérhető adat a levegőminőségről!";
+      document.getElementById('air-components').textContent = "";
+    }
+    
+    // --- Riasztás logika ---
+    let ww = {warnings:[]};
+    try {
+      ww = await getWeatherWarning(cityName);
+    } catch (err) {
+      // ha az OMSZ API nem elérhető, "üres" riasztást adunk vissza, a program NE álljon le
+      ww = {warnings:[]};
+    }
+    const warnPanel = document.getElementById('weather-warning-card');
+    const warnDiv = document.getElementById('weather-warning-details');
+    if (!ww.warnings.length) {
+      warnPanel.className = "eco-card warn-none";
+      warnDiv.innerHTML = `<span class="warn-icon">✅</span> <b>Nincs riasztás.</b>`;
+    } else {
+      warnPanel.className = warningLevelClass(Math.max(...ww.warnings.map(w=>w.szint)));
+      warnDiv.innerHTML = ww.warnings.map(w=>{
+        const iconAndText = warningIconAndText(w.jelzes);
+        let timeInfo = w.kezdete ? `<span class="warn-time">${formatOszTime(w.kezdete)} - ${formatOszTime(w.vege)}</span>` : '';
+        let teendo = szintTeendo[w.szint] || "";
+        return `<span class="warn-icon">${iconAndText.icon}</span> <b>${iconAndText.text}</b> (szint: <b>${w.szint}</b>)${timeInfo}<br><b>${teendo}</b>`;
+      }).join("<hr style='border:none;border-top:1px solid #eee;margin:6px 0;>");
+    }
+    
+
+if (weather.current_weather.temperature >= 33)
+  showAlertModal("Hőségriasztás","Rendkívül magas hőmérséklet, figyelj a folyadékbevitelre és árnyékban tartózkodj!");
+
+
+// --- Forgalmi információ (helyi és 60 km-es körzet) ---
+let trafficObj = await getUtinform(cityName);
+let localMsg = trafficObj.city && trafficObj.city.length
+  ? trafficObj.city.map(x => x.title + ": " + x.desc).join("<br>")
+  : "";
+let around60kmMsg = trafficObj.county && trafficObj.county.length
+  ? trafficObj.county.map(x => x.title + ": " + x.desc).join("<br>")
+  : "";
+trafficObj = { local: localMsg, around60km: around60kmMsg };
+
+
+// --- Front információ generálása, valódi állapot + következő front ---
+let frontBox = "";
+let frontType = "";
+let symptoms = "";
+let frontEndTime = "";
+let nextFrontTime = "";
+
+if (weather.hourly && weather.hourly.time && weather.hourly.pressure_msl) {
+  let now = new Date(weather.current_weather.time);
+  let idxNow = weather.hourly.time.findIndex(x => x.startsWith(weather.current_weather.time.slice(0,13)));
+  let activeFront = "";
+  let frontEndIdx = null;
+  let frontStartIdx = null;
+  let presNow = undefined;
+
+  // --- Keresd, hogy most van-e front légnyomás alapján ---
+  if (idxNow >= 0) {
+    presNow = weather.hourly.pressure_msl[idxNow];
+    if (presNow < 1003) activeFront = "hidegfront";
+    else if (presNow > 1020) activeFront = "melegfront";
+  }
+
+  // --- Ha nincs légnyomásos front, figyeld a hőmérsékletváltozást is! ---
+  // 4 órás átlag-változást nézünk
+  if (idxNow >= 4 && !activeFront) {
+    let tempNow = weather.hourly.temperature_2m[idxNow];
+    let tempBefore = weather.hourly.temperature_2m[idxNow - 4];
+    let tempChange = tempNow - tempBefore;
+    if (tempChange <= -3) activeFront = "hidegfront_hő";
+    else if (tempChange >= 3) activeFront = "melegfront_hő";
+  }
+
+  // --- Ha most van front, keresd a végét ---
+  if (activeFront && idxNow >= 0 && activeFront.startsWith("hidegfront")) {
+    for (let i = idxNow; i < Math.min(weather.hourly.time.length, idxNow + 48); i++) {
+      let pres = weather.hourly.pressure_msl[i];
+      if (pres >= 1003) {
+        frontEndIdx = i;
+        break;
+      }
+    }
+  } else if (activeFront && idxNow >= 0 && activeFront.startsWith("melegfront")) {
+    for (let i = idxNow; i < Math.min(weather.hourly.time.length, idxNow + 48); i++) {
+      let pres = weather.hourly.pressure_msl[i];
+      if (pres <= 1020) {
+        frontEndIdx = i;
+        break;
+      }
+    }
+  }
+  if (frontEndIdx !== null && (frontEndIdx + 1) < weather.hourly.time.length) {
+    let dtEnd = new Date(weather.hourly.time[frontEndIdx]);
+    let dtNow = new Date(weather.current_weather.time);
+    let diffMs = dtEnd - dtNow;
+    let diffH = Math.floor(diffMs / 3600000);
+    let diffM = Math.round((diffMs % 3600000) / 60000);
+    let day = Math.floor(diffH / 24);
+    let hour = diffH % 24;
+    let tartam = (day > 0 ? `${day} nap ` : "") + (hour > 0 ? `${hour} óra ` : "") + (diffM > 0 ? `${diffM} perc` : "");
+    let endHour = dtEnd.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+    let nowDay = dtNow.getDate(), endDay = dtEnd.getDate();
+    let dayLabel = (endDay === nowDay) ? "ma" : (endDay === nowDay + 1) ? "holnap" : dtEnd.toLocaleDateString('hu-HU', { month: '2-digit', day: '2-digit' });
+    frontEndTime = `<br><span style='font-size:.97em;font-weight:400;'>Várhatóan frontos állapot vége: <b>${dayLabel} ${endHour}</b> <span style="color:#198944">(${tartam} múlva)</span></span>`;
+  } else if (frontEndIdx !== null) {
+    let dtEnd = new Date(weather.hourly.time[frontEndIdx]);
+    let endHour = dtEnd.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+    frontEndTime = `<br><span style='font-size:.97em;font-weight:400;'>A frontos állapot vége: <b>${endHour}</b> után</span>`;
+  } else if (activeFront) {
+    frontEndTime = `<br><span style='font-size:.97em;font-weight:400;'>A frontos állapot várhatóan még 24 órán belül is tart.</span>`;
+  }
+
+// --- Ha most NINCS front, keresd meg a következő front TELJES időtartamát ---
+if (!activeFront && idxNow >= 0) {
+  let nextFrontStart = null, nextFrontEnd = null, nextFrontType = "";
+  for (let i = idxNow + 1; i < Math.min(weather.hourly.time.length, idxNow + 48); i++) {
+    let pres = weather.hourly.pressure_msl[i];
+    if (pres < 1003 || pres > 1020) {
+      nextFrontStart = i;
+      nextFrontType = pres < 1003 ? "🌀 Hidegfront" : "🌞 Melegfront";
+      // Most keressük meg a végét!
+      for (let j = i; j < Math.min(weather.hourly.time.length, i + 48); j++) {
+        let presEnd = weather.hourly.pressure_msl[j];
+        if ((nextFrontType === "🌀 Hidegfront" && presEnd >= 1003) ||
+            (nextFrontType === "🌞 Melegfront" && presEnd <= 1020)) {
+          nextFrontEnd = j;
+          break;
+        }
+      }
+      break;
+    }
+  }
+  if (nextFrontStart !== null) {
+    let dtNow = new Date(weather.current_weather.time);
+    let dtStart = new Date(weather.hourly.time[nextFrontStart]);
+    let dtEnd = nextFrontEnd !== null ? new Date(weather.hourly.time[nextFrontEnd]) : null;
+
+    // --- Magyar "nap-jelző" logika ---
+    let dayLabel = "";
+    const dayDiff = dtStart.getDate() - dtNow.getDate();
+    if (dayDiff === 1) {
+      dayLabel = "holnap ";
+    } else if (dtStart.getDate() !== dtNow.getDate()) {
+      dayLabel = dtStart.toLocaleDateString('hu-HU', { year:'numeric', month: '2-digit', day:'2-digit' }) + " ";
+    }
+    let startStr = dayLabel + dtStart.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+    let sameDay = dtEnd && dtStart.getDate() === dtEnd.getDate();
+    let endStr = dtEnd
+      ? dtEnd.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' }) +
+        (sameDay ? '' : ` (${dtEnd.toLocaleDateString('hu-HU', { month: '2-digit', day: '2-digit' })})`)
+      : "n.a.";
+    let tartam = (dtEnd && dtEnd > dtStart)
+      ? Math.round((dtEnd - dtStart) / 3600000)
+      : "?";
+    if (dtEnd && dtEnd > dtStart) {
+      nextFrontTime = `<br><span style='font-size:.97em;font-weight:400;'>Következő front (${nextFrontType}) várhatóan <b>${startStr}</b>-tól <b>${endStr}</b>-ig (${tartam} óra)</span>`;
+    } else {
+      nextFrontTime = `<br><span style='font-size:.97em;font-weight:400;'>Következő front (${nextFrontType}) várhatóan <b>${startStr}</b>-tól (tartam nem meghatározható)</span>`;
+    }
+  }
+}
+
+  // --- Panel tartalom ---
+  if (activeFront === "hidegfront") {
+    frontType = "🌀 Hidegfront";
+    symptoms = "Gyakori tünet: fejfájás, migrén, vérnyomás-ingadozás, ízületi panaszok.";
+  } else if (activeFront === "melegfront") {
+    frontType = "🌞 Melegfront";
+    symptoms = "Gyakori tünet: migrén, álmosság, bágyadtság, ingerlékenység.";
+  } else if (activeFront === "hidegfront_hő") {
+    frontType = "🌀 Hidegfront (csak hőmérséklet alapján)";
+    symptoms = "Hirtelen lehűlés (legalább 3°C 4 óra alatt), légnyomás-fronthoz hasonló tüneteket okozhat.";
+  } else if (activeFront === "melegfront_hő") {
+    frontType = "🌞 Melegfront (csak hőmérséklet alapján)";
+    symptoms = "Hirtelen melegedés (legalább 3°C 4 óra alatt), melegfront-jellegű tünetek jelentkezhetnek.";
+  } else {
+    frontType = "Nincs front";
+    symptoms = "Frontérzékenyek ma várhatóan nyugodtabb napra számíthatnak.";
+  }
+} else if (weather.current_weather && typeof weather.current_weather.pressure_msl === "number") {
+  let p = weather.current_weather.pressure_msl;
+  if (p < 1003) {
+    frontType = "🌀 Hidegfront";
+    symptoms = "Gyakori tünet: fejfájás, migrén, vérnyomás-ingadozás, ízületi panaszok.";
+  }
+  else if (p > 1020) {
+    frontType = "🌞 Melegfront";
+    symptoms = "Gyakori tünet: migrén, álmosság, bágyadtság, ingerlékenység.";
+  }
+  else {
+    frontType = "Nincs front";
+    symptoms = "Frontérzékenyek ma várhatóan nyugodtabb napra számíthatnak.";
+  }
+}
+
+// --- Panel HTML kiírás ---
+if (frontType && frontType !== "Nincs front") {
+  frontBox = `<div style="background:#e4f1fe;padding:8px 10px 8px 15px;margin-bottom:8px;border-radius:11px;font-size:1.02em;font-weight:600;color:#234b69;">
+    ${frontType}<br>
+    ${frontEndTime}
+    <span style="font-weight:400">${symptoms}</span>
+  </div>`;
+} else if (frontType === "Nincs front") {
+  frontBox = `<div style="background:#e6fbe4;padding:8px 10px 8px 15px;margin-bottom:8px;border-radius:11px;font-size:1.01em;font-weight:500;color:#198944;">
+    ${frontType}
+    ${nextFrontTime}
+    <br><span style="font-weight:400">${symptoms}</span>
+  </div>`;
+}
+
+
+
+
+// --- AI panel generálása ---
+const aiSug = document.getElementById('ai-suggestion');
+const trafficMsg = [trafficObj.local, trafficObj.around60km].filter(Boolean).join("<br>");
+
+if (aiSug && aiSug.children[1]) {
+  aiSug.children[1].innerHTML =
+    frontBox +
+    `<strong>AI ajánlatod mára:</strong><br>` +
+    generateAISuggestion(weather, airData, atmNow, trafficMsg) +
+    "<br>" + getBioMeteoSummary(weather, atmNow, airData) +
+    "<br>" + getBioMeteoForecast(weather, atmNow, airData); // <-- ÚJ SOR!
+
+} else if (aiSug) {
+  // Itt is .innerHTML, de az aiSug.children[1] nincs, ezért szülőbe megy.
+  aiSug.innerHTML =
+    frontBox +
+    `<strong>AI ajánlatod mára:</strong><br>` +
+    generateAISuggestion(weather, airData, atmNow, trafficMsg) +
+    "<br>" + getBioMeteoSummary(weather, atmNow, airData) +
+    "<br>" + getBioMeteoForecast(weather, atmNow, airData); // <-- ÚJ SOR!
+}
+
+// ... (panelek update, térképek, minden egyéb)
+updateSunTimesPanel(lat, lon);
+updatePressurePanel(weather);
+updateClothingBlock(weather);
+updateAstroWindowPanel(weather);
+updateMeteorPanel();
+updateAuroraPanel();
+updateEarthquakePanel();
+updateUvPanel(weather);
+updateRainPanel(weather);
+updateJamPanel(trafficObj.local, trafficObj.around60km);
+initMap(lat, lon);
+liveFollowPosition();
+renderForecast(weather);
+renderBioMeteoSparkline(weather, atmNow, airData);
+updateCloudPanel(weather);
+
+} catch (e) {
+  const aiSug = document.getElementById('ai-suggestion');
+  const trafficMsg = [trafficObj.local, trafficObj.around60km].filter(Boolean).join("<br>");
+  if (aiSug && aiSug.children[1] && aiSug.children[1].tagName === 'SPAN') {
+    aiSug.children[1].innerHTML =
+      frontBox +
+      `<strong>AI ajánlatod mára:</strong><br>` +
+      generateAISuggestion(weather, airData, atmNow, trafficMsg) +
+      "<br>" + getBioMeteoSummary(weather, atmNow, airData) +
+      "<br>" + getBioMeteoForecast(weather, atmNow, airData); // <-- ÚJ SOR!
+
+  } else if (aiSug) {
+    // Végső fallback: írja ki az egész dobozt, SVG-vel együtt
+    aiSug.innerHTML =
+      `<svg ...></svg>
+      <span>` +
+      frontBox +
+      `<strong>AI ajánlatod mára:</strong><br>` +
+      generateAISuggestion(weather, airData, atmNow, trafficMsg) +
+      "<br>" + getBioMeteoSummary(weather, atmNow, airData) +
+      `</span>`;
+  }
+
+  // ... a többi hiba panel üresítés:
+  const weatherPanel = document.getElementById('weather');
+  if (weatherPanel) weatherPanel.textContent = "Nincs élő adat.";
+  const cityPanel = document.getElementById('city');
+  if (cityPanel) cityPanel.textContent = "";
+  const atmPanel = document.getElementById('atm-panel');
+  if (atmPanel) atmPanel.textContent = "";
+  const airQuality = document.getElementById('air-quality');
+  if (airQuality) airQuality.textContent = "";
+  const airComponents = document.getElementById('air-components');
+  if (airComponents) airComponents.textContent = "";
+  const pollenPanel = document.getElementById('pollen-panel');
+  if (pollenPanel) pollenPanel.textContent = "";
+  const weatherWarn = document.getElementById('weather-warning-details');
+  if (weatherWarn) weatherWarn.textContent = "";
+  const trafficInfo = document.getElementById('traffic-info');
+  if (trafficInfo) {
+    trafficInfo.textContent = "";
+    trafficInfo.innerHTML = "🚦 <b>Forgalmi információ:</b> Nincs adat";
+  }
+}
+
+}
+
+// --- Waze iframe automatikus pozíció ---
+// Ez mindig a te aktuális pozíciódat mutatja a waze térképen!
+function updateWazeIframe(lat, lon) {
+  const zoom = 11;
+  const src = `https://embed.waze.com/iframe?zoom=${zoom}&lat=${lat}&lon=${lon}`;
+  document.getElementById('wazeFrame').src = src;
+}
+getPosition().then(coords => {
+  updateWazeIframe(coords.latitude, coords.longitude);
+});
+// if (navigator.geolocation) {
+ // navigator.geolocation.watchPosition(pos => {
+  //  updateWazeIframe(pos.coords.latitude, pos.coords.longitude);
+ // });
+// }
+
+
+window.onload = loadEcoData;
+setInterval(loadEcoData, 60000); // 1 percenként újra frissít
+
+setInterval(updateAuroraPanel, 900000); // 15 perc
+
+
+let recognizing = false;
+let recognition;
+let targetLang = "en";
+
+// --- Zászló gombok kezelése a FORDÍTÓ panelhez ---
+document.querySelectorAll('.flagBtn').forEach(btn => {
+  btn.onclick = function() {
+    document.querySelectorAll('.flagBtn').forEach(b => b.classList.remove('selected'));
+    this.classList.add('selected');
+    targetLang = this.dataset.lang;
+  }
+});
+document.querySelector('.flagBtn[data-lang="en"]')?.classList.add('selected');
+
+// --- Mikrofon logika ---
+const micBtn = document.getElementById('micBtn');
+if (micBtn) {
+  micBtn.onclick = function() {
+    if (!recognition) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.interimResults = false;
+      recognition.continuous = false; // csak egy mondat
+      recognition.lang = "hu-HU";     // mindig magyar!
+      recognition.onresult = function(event) {
+        const text = Array.from(event.results).map(r => r[0].transcript).join(' ').trim();
+        document.getElementById('speechResult').textContent = text;
+        const manualInput = document.getElementById('manualInput');
+        if (manualInput) manualInput.value = text; // <-- ide is bemásolja
+      };
+      recognition.onerror = function(event) {
+        document.getElementById('speechResult').textContent = "Hiba: " + event.error;
+        micBtn.classList.remove('active');
+        recognizing = false;
+      };
+      recognition.onend = function() {
+        micBtn.classList.remove('active');
+        recognizing = false;
+      };
+    }
+    if (!recognizing) {
+      recognition.start();
+      recognizing = true;
+      this.classList.add('active');
+      document.getElementById('speechResult').textContent = "Beszélj most... (magyar)";
+    } else {
+      recognition.stop();
+      recognizing = false;
+      this.classList.remove('active');
+    }
+  };
+}
+
+// --- Fordító gomb ---
+const translateBtn = document.getElementById('translateBtn');
+if (translateBtn) {
+  translateBtn.onclick = async function() {
+    const text = document.getElementById('manualInput')?.value || "";
+    document.getElementById('translateResult').textContent = "Fordítás...";
+    const translation = await translateWithLibre(text, targetLang, "auto");
+    document.getElementById('translateResult').textContent = translation;
+  };
+}
+
+// --- Fordítás (LibreTranslate API) ---
+async function translateWithLibre(text, targetLang = "en", sourceLang = "auto") {
+  if (!text.trim()) return "";
+  try {
+    const res = await fetch("https://libretranslate.de/translate", {
+      method: "POST",
+      body: JSON.stringify({
+        q: text,
+        source: sourceLang,
+        target: targetLang,
+        format: "text"
+      }),
+      headers: { "Content-Type": "application/json" }
+    });
+    const data = await res.json();
+    return data.translatedText || "[Nincs fordítás]";
+  } catch (e) {
+    return "[Fordítási hiba]";
+  }
+}
+
+function updateCloudPanel(weather) {
+  if (!weather || !weather.hourly || !weather.hourly.cloudcover || !weather.hourly.time)
+    return document.getElementById('cloud-panel').textContent = "Nincs adat.";
+  let nowIdx = weather.hourly.time.findIndex(x=>x.startsWith(weather.current_weather.time.slice(0,13)));
+  if (nowIdx < 0) nowIdx = 0;
+  let currentCloud = weather.hourly.cloudcover[nowIdx];
+  // 8 órára előre, átlag
+  let sum = 0, n = 0;
+  for (let i = nowIdx; i < Math.min(nowIdx+8, weather.hourly.cloudcover.length); i++) {
+    sum += weather.hourly.cloudcover[i];
+    n++;
+  }
+  let avgCloud = n ? Math.round(sum/n) : currentCloud;
+  let currentDesc = currentCloud <= 15 ? "derült" : currentCloud <= 50 ? "gyengén felhős" : currentCloud <= 85 ? "erősen felhős" : "borult";
+  let forecastDesc = avgCloud <= 15 ? "derült" : avgCloud <= 50 ? "gyengén felhős" : avgCloud <= 85 ? "erősen felhős" : "borult";
+  document.getElementById('cloud-panel').innerHTML =
+    `<b>Most:</b> ${currentCloud}% – ${currentDesc}<br><b>8 órás átlag:</b> ${avgCloud}% – ${forecastDesc}`;
+}
+
+function calcBiometeoLevel(weather, atm, air, idx, nowIdx) {
+  let level = 0, reasons = [];
+  // --- Front detektálás ---
+  let pres = weather.hourly && weather.hourly.pressure_msl ? weather.hourly.pressure_msl[idx] : null;
+  if (pres !== null) {
+    if (pres < 1003 || pres > 1020) { level++; reasons.push("front"); }
+  }
+  // --- Páratartalom ---
+  let humidity = weather.hourly.relative_humidity_2m?.[idx];
+  if (humidity !== undefined) {
+    if (humidity >= 75 || humidity <= 35) { level++; reasons.push("páratartalom"); }
+  }
+  // --- Szél ---
+  let wind = weather.hourly.windspeed_10m?.[idx];
+  if (wind !== undefined && wind >= 30) { level++; reasons.push("szél"); }
+  // --- UV ---
+  let uv = weather.hourly.uv_index?.[idx];
+  if (uv !== undefined && uv >= 6) { level++; reasons.push("UV"); }
+  // --- Légszennyezés --- csak az aktuális órában!
+  if (
+    air && air.components &&
+    idx === nowIdx && // <-- Csak a mostani óra!
+    (
+      (air.components.pm2_5 && air.components.pm2_5 > 18) ||
+      (air.components.o3 && air.components.o3 > 80) ||
+      (air.components.pm10 && air.components.pm10 > 25) ||
+      (air.components.no2 && air.components.no2 > 0.1) ||
+      (air.components.co && air.components.co > 4000)
+    )
+  ) {
+    level++; reasons.push("légszennyezés");
+  }
+  return {level: Math.min(level,2), reasons};
+}
+
+function openSymptomDiary() {
+  // Előtöltés
+  let diary = JSON.parse(localStorage.getItem("symptomDiary") || "{}");
+  let today = new Date().toISOString().slice(0,10);
+  let rec = diary[today] || {};
+  document.getElementById('cb-fejfajas').checked = !!rec.fejfajas;
+  document.getElementById('cb-faradtsag').checked = !!rec.faradtsag;
+  document.getElementById('cb-alvaszavar').checked = !!rec.alvaszavar;
+  document.getElementById('cb-ingerkekenyseg').checked = !!rec.ingerkekenyseg;
+  document.getElementById('inp-egyeb').value = rec.egyeb || "";
+  document.getElementById('symptomModal').style.display = "block";
+}
+
+function saveSymptomDiary() {
+  let diary = JSON.parse(localStorage.getItem("symptomDiary") || "{}");
+  let today = new Date().toISOString().slice(0,10);
+
+  // --- Biometeo állapot bekérése a naplózáshoz (aktuális front, szmog, UV, szél stb.) ---
+  // Itt a te AI biometeo-függvényeidet hívd!
+  let bioLevel = window.currentBioLevel || 0;
+  let bioRisks = window.currentBioRisks || [];
+  let front = window.currentFrontType || "";    // pl. "hidegfront" / "melegfront" / ""
+  let szmog = window.currentSzmog || false;
+  let uv = window.currentUV || 0;
+  let szel = window.currentWind || 0;
+  let homerseklet = window.currentTemp || 0;
+  let paratartalom = window.currentHumidity || 0;
+
+  diary[today] = {
+    fejfajas: document.getElementById('cb-fejfajas').checked,
+    faradtsag: document.getElementById('cb-faradtsag').checked,
+    alvaszavar: document.getElementById('cb-alvaszavar').checked,
+    ingerkekenyseg: document.getElementById('cb-ingerkekenyseg').checked,
+    egyeb: document.getElementById('inp-egyeb').value.trim(),
+    bioLevel, bioRisks, front, szmog, uv, szel, homerseklet, paratartalom
+  };
+  localStorage.setItem("symptomDiary", JSON.stringify(diary));
+  document.getElementById('symptomModal').style.display = "none";
+  alert("Tünetek és aktuális biometeo állapot mentve.");
+}
+
+function showSymptomAnalysis() {
+  let diary = JSON.parse(localStorage.getItem("symptomDiary") || "{}");
+  let napok = Object.keys(diary).slice(-14); // utolsó 14 nap
+  let stat = {fejfajas:0, front:0, szmog:0, fejfajasFront:0, fejfajasSzmog:0, fejfajasBio:0};
+  let fejBioRisks = {};
+  napok.forEach(nap => {
+    let rec = diary[nap];
+    if(rec.fejfajas) {
+      stat.fejfajas++;
+      if(rec.front && rec.front!=="") stat.fejfajasFront++;
+      if(rec.szmog) stat.fejfajasSzmog++;
+      if(rec.bioLevel>=1) stat.fejfajasBio++;
+      if(rec.bioRisks) rec.bioRisks.forEach(r=>{ fejBioRisks[r]=(fejBioRisks[r]||0)+1; });
+    }
+    if(rec.front && rec.front!=="") stat.front++;
+    if(rec.szmog) stat.szmog++;
+  });
+  // AI szöveg automatikus:
+  let txt = "";
+  if(stat.fejfajas) {
+    txt += `Az elmúlt 2 hétben <b>${stat.fejfajas}</b> alkalommal volt fejfájásod.<br>`;
+    if(stat.fejfajasFront)
+      txt += `A fejfájások <b>${Math.round(100*stat.fejfajasFront/stat.fejfajas)}%</b>-a frontos napon jelentkezett.<br>`;
+    if(stat.fejfajasSzmog)
+      txt += `A fejfájások <b>${Math.round(100*stat.fejfajasSzmog/stat.fejfajas)}%</b>-a szmogos időben volt.<br>`;
+    if(stat.fejfajasBio)
+      txt += `A fejfájások <b>${Math.round(100*stat.fejfajasBio/stat.fejfajas)}%</b>-a közepes vagy magas biometeo terhelésnél fordult elő.<br>`;
+    if(Object.keys(fejBioRisks).length)
+      txt += `Leggyakoribb biometeo okok fejfájáskor: <b>${Object.keys(fejBioRisks).join(", ")}</b>`;
+  } else {
+    txt = "Az elmúlt 2 hétben nem rögzítettél fejfájást.";
+  }
+  document.getElementById('symptom-analysis-result').innerHTML = txt;
+  drawSymptomDiagram(napok, diary);
+  document.getElementById('symptom-analysis-modal').style.display = "block";
+}
+
+function drawSymptomDiagram(napok, diary) {
+  // Mini vonaldiagram: X=tizedik naptól mostanáig, Y: fejfájás, front, szmog
+  let ctx = document.getElementById('symptom-diagram').getContext('2d');
+  ctx.clearRect(0,0,400,110);
+  // Tengelyek
+  ctx.strokeStyle="#bbb"; ctx.beginPath(); ctx.moveTo(38,14);ctx.lineTo(38,100);ctx.lineTo(398,100);ctx.stroke();
+  // Napi jelek
+  let dx = (400-45)/Math.max(1,napok.length-1);
+  napok.forEach((nap,n) => {
+    let rec = diary[nap];
+    let x = 38 + n*dx;
+    // Fejfájás: piros pont, front: kék négyzet, szmog: sárga háromszög
+    if(rec.fejfajas) { ctx.fillStyle="#e23"; ctx.beginPath(); ctx.arc(x,90,6,0,2*Math.PI); ctx.fill(); }
+    if(rec.front && rec.front!=="") { ctx.fillStyle="#36c"; ctx.fillRect(x-6,70,12,12);}
+    if(rec.szmog) { ctx.fillStyle="#dc0"; ctx.beginPath(); ctx.moveTo(x,53);ctx.lineTo(x-7,65);ctx.lineTo(x+7,65);ctx.closePath();ctx.fill();}
+    ctx.fillStyle="#444"; ctx.font="11px sans-serif";
+    ctx.fillText(nap.slice(5),x-10,105); // dátum, csak hó-nap
+  });
+  // Jelmagyarázat
+  ctx.fillStyle="#e23";ctx.beginPath();ctx.arc(60,18,5,0,2*Math.PI);ctx.fill(); ctx.fillStyle="#444";ctx.fillText("Fejfájás",70,22);
+  ctx.fillStyle="#36c";ctx.fillRect(130,13,12,12);ctx.fillStyle="#444";ctx.fillText("Front",147,22);
+  ctx.fillStyle="#dc0";ctx.beginPath();ctx.moveTo(205,17);ctx.lineTo(198,28);ctx.lineTo(212,28);ctx.closePath();ctx.fill();ctx.fillStyle="#444";ctx.fillText("Szmog",215,22);
+}
+
+function deleteSymptomDiary() {
+  if (confirm("Biztosan törlöd az összes tünetnapló-adatot? Ez nem visszavonható!")) {
+    localStorage.removeItem("symptomDiary");
+    alert("Az összes naplózott adat törölve! Mostantól újra kezdheted a rögzítést és elemzést.");
+  }
+}
+
+
+
+</script>
+</body>
+</html>
